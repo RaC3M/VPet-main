@@ -9,11 +9,6 @@ internal static class AiAgentEnvironment
     public const string OllamaExePath = "VPET_OLLAMA_EXE";
     public const string OllamaUrl = "VPET_OLLAMA_URL";
     public const string OllamaModel = "VPET_OLLAMA_MODEL";
-    public const string WebSearchEnabled = "VPET_WEB_SEARCH_ENABLED";
-    public const string VertexSearchApiKey = "VPET_VERTEX_SEARCH_API_KEY";
-    public const string VertexSearchProjectId = "VPET_VERTEX_SEARCH_PROJECT_ID";
-    public const string VertexSearchAppId = "VPET_VERTEX_SEARCH_APP_ID";
-    public const string VertexSearchLocation = "VPET_VERTEX_SEARCH_LOCATION";
     public const string OpenAiApiKey = "OPENAI_API_KEY";
     public const string OpenAiModel = "VPET_OPENAI_MODEL";
     public const string GoogleClientId = "VPET_GOOGLE_CLIENT_ID";
@@ -34,15 +29,6 @@ internal static class AiAgentEnvironment
         get
         {
             var value = Get(OllamaAutoStart);
-            return string.IsNullOrWhiteSpace(value) || value.Equals("true", StringComparison.OrdinalIgnoreCase);
-        }
-    }
-
-    public static bool IsWebSearchEnabled
-    {
-        get
-        {
-            var value = Get(WebSearchEnabled);
             return string.IsNullOrWhiteSpace(value) || value.Equals("true", StringComparison.OrdinalIgnoreCase);
         }
     }

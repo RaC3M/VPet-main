@@ -915,6 +915,239 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+            <TabItem BorderBrush="{DynamicResource PrimaryDarker}" Foreground="{DynamicResource PrimaryText}"
+                    Header="AI">
+                <TabControl x:Name="AiAgentSubTab" Background="Transparent" BorderThickness="0"
+                        pu:TabControlHelper.ItemsCornerRadius="4"
+                        pu:TabControlHelper.ItemsPadding="10,6"
+                        pu:TabControlHelper.ItemsSelectedBackground="{DynamicResource PrimaryDark}"
+                        pu:TabControlHelper.ItemsSelectedForeground="{DynamicResource DARKPrimaryText}">
+                    <TabItem Header="概覽/模型">
+                        <ScrollViewer>
+                            <StackPanel Margin="4">
+                                <TextBlock Margin="0,0,0,12" Background="{x:Null}" TextWrapping="Wrap">
+                                    <Run FontSize="18" FontWeight="Bold" Text="AI Agent" /><LineBreak />
+                                    <Run Text="AI 設定會儲存在使用者環境變數；API Key 和 Secret 不會寫入桌寵設定檔。" />
+                                </TextBlock>
+                                <TextBlock x:Name="tbAiOverviewStatus" Margin="0,0,0,14" Background="{x:Null}"
+                                        TextWrapping="Wrap" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="15" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="AI Provider" />
+                                    <ComboBox x:Name="cbAiProvider" Grid.Row="0" Grid.Column="2" Margin="0,2"
+                                            Style="{DynamicResource StandardComboBoxStyle}">
+                                        <ComboBoxItem Content="Ollama" Tag="ollama" />
+                                        <ComboBoxItem Content="OpenAI" Tag="openai" />
+                                    </ComboBox>
+
+                                    <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Ollama 自動啟動" />
+                                    <CheckBox x:Name="cbAiOllamaAutoStart" Grid.Row="1" Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Content="桌寵啟動時啟動並預載 Ollama" />
+
+                                    <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="Ollama URL" />
+                                    <TextBox x:Name="tbAiOllamaUrl" Grid.Row="2" Grid.Column="2" Margin="0,2"
+                                            Style="{DynamicResource StandardTextBoxStyle}" />
+
+                                    <TextBlock Grid.Row="3" VerticalAlignment="Center" Text="Ollama Model" />
+                                    <ComboBox x:Name="cbAiOllamaModel" Grid.Row="3" Grid.Column="2" Margin="0,2"
+                                            IsEditable="True" IsTextSearchEnabled="False"
+                                            Style="{DynamicResource StandardComboBoxStyle}">
+                                        <ComboBoxItem Content="Qwen2.5 1.5B - light" Tag="qwen2.5:1.5b" />
+                                        <ComboBoxItem Content="Qwen2.5 3B - balanced small" Tag="qwen2.5:3b" />
+                                        <ComboBoxItem Content="Qwen2.5 7B - recommended Chinese" Tag="qwen2.5:7b" />
+                                        <ComboBoxItem Content="Qwen2.5 14B - stronger, heavier" Tag="qwen2.5:14b" />
+                                        <ComboBoxItem Content="Llama 3.2 1B - very light" Tag="llama3.2:1b" />
+                                        <ComboBoxItem Content="Llama 3.2 3B - light agent" Tag="llama3.2:3b" />
+                                        <ComboBoxItem Content="Gemma 3 1B - very light" Tag="gemma3:1b" />
+                                        <ComboBoxItem Content="Gemma 3 4B - balanced" Tag="gemma3:4b" />
+                                        <ComboBoxItem Content="Gemma 3 12B - stronger, heavier" Tag="gemma3:12b" />
+                                    </ComboBox>
+
+                                    <TextBlock Grid.Row="4" VerticalAlignment="Center" Text="OpenAI API Key" />
+                                    <PasswordBox x:Name="pbAiOpenAiKey" Grid.Row="4" Grid.Column="2" Margin="0,2" />
+
+                                    <TextBlock Grid.Row="5" VerticalAlignment="Center" Text="OpenAI Model" />
+                                    <TextBox x:Name="tbAiOpenAiModel" Grid.Row="5" Grid.Column="2" Margin="0,2"
+                                            Style="{DynamicResource StandardTextBoxStyle}" />
+
+                                    <StackPanel Grid.Row="6" Grid.Column="2" Orientation="Horizontal"
+                                            HorizontalAlignment="Right" Margin="0,8,0,0">
+                                        <Button Margin="0,0,8,0" Padding="12,6" Content="下載模型"
+                                                Click="DownloadAiOllamaModel_Click" />
+                                        <Button Margin="0,0,8,0" Padding="12,6" Content="測試 AI"
+                                                Click="TestAiAgent_Click" />
+                                        <Button Padding="12,6" Content="儲存 AI 設定"
+                                                Click="SaveAiAgentSettings_Click" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="Google 行事曆">
+                        <ScrollViewer>
+                            <StackPanel Margin="4">
+                                <TextBlock Margin="0,0,0,12" Background="{x:Null}" TextWrapping="Wrap"
+                                        Text="Google OAuth Redirect URI：http://127.0.0.1:53682/" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="15" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="Google Client ID" />
+                                    <TextBox x:Name="tbAiGoogleClientId" Grid.Row="0" Grid.Column="2" Margin="0,2"
+                                            Style="{DynamicResource StandardTextBoxStyle}" />
+
+                                    <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Google Client Secret" />
+                                    <PasswordBox x:Name="pbAiGoogleClientSecret" Grid.Row="1" Grid.Column="2"
+                                            Margin="0,2" />
+
+                                    <TextBlock x:Name="tbAiGoogleStatus" Grid.Row="2" Grid.ColumnSpan="3"
+                                            Margin="0,8,0,10" Background="{x:Null}" TextWrapping="Wrap" />
+
+                                    <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Horizontal"
+                                            HorizontalAlignment="Right">
+                                        <Button Margin="0,0,8,0" Padding="12,6" Content="連線 Google"
+                                                Click="ConnectAiGoogle_Click" />
+                                        <Button Padding="12,6" Content="儲存 AI 設定"
+                                                Click="SaveAiAgentSettings_Click" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="本機提醒">
+                        <Grid Margin="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="35" />
+                                    <RowDefinition Height="35" />
+                                    <RowDefinition Height="35" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="75" />
+                                    <ColumnDefinition Width="95" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="標題" />
+                                <TextBox x:Name="tbAiReminderTitle" Grid.Row="0" Grid.Column="1"
+                                        Grid.ColumnSpan="4" Margin="0,2"
+                                        Style="{DynamicResource StandardTextBoxStyle}" />
+
+                                <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="日期" />
+                                <DatePicker x:Name="dpAiReminderDate" Grid.Row="1" Grid.Column="1"
+                                        Margin="0,2,8,2" />
+                                <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Text="時間" />
+                                <TextBox x:Name="tbAiReminderTime" Grid.Row="1" Grid.Column="3"
+                                        Grid.ColumnSpan="2" Margin="0,2"
+                                        Style="{DynamicResource StandardTextBoxStyle}" />
+
+                                <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="備註" />
+                                <TextBox x:Name="tbAiReminderNote" Grid.Row="2" Grid.Column="1"
+                                        Margin="0,2,8,2" Style="{DynamicResource StandardTextBoxStyle}" />
+                                <Button Grid.Row="2" Grid.Column="2" Margin="0,2,8,2" Padding="10,4"
+                                        Content="新增" Click="AddAiReminder_Click" />
+                                <Button Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Margin="0,2"
+                                        Padding="10,4" Content="刪除選取提醒"
+                                        Click="DeleteAiReminder_Click" />
+                            </Grid>
+
+                            <DataGrid x:Name="dgAiReminders" Grid.Row="1" AutoGenerateColumns="False"
+                                    CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="時間" Binding="{Binding Time, StringFormat=yyyy-MM-dd HH:mm}"
+                                            Width="150" />
+                                    <DataGridTextColumn Header="標題" Binding="{Binding Title}" Width="*" />
+                                    <DataGridTextColumn Header="備註" Binding="{Binding Note}" Width="*" />
+                                    <DataGridCheckBoxColumn Header="已觸發" Binding="{Binding Triggered}" Width="70" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="程式捷徑">
+                        <Grid Margin="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="35" />
+                                    <RowDefinition Height="35" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="75" />
+                                    <ColumnDefinition Width="75" />
+                                    <ColumnDefinition Width="75" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="名稱" />
+                                <TextBox x:Name="tbAiShortcutName" Grid.Row="0" Grid.Column="1"
+                                        Grid.ColumnSpan="4" Margin="0,2"
+                                        Style="{DynamicResource StandardTextBoxStyle}" />
+
+                                <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="路徑" />
+                                <TextBox x:Name="tbAiShortcutPath" Grid.Row="1" Grid.Column="1" Margin="0,2,8,2"
+                                        Style="{DynamicResource StandardTextBoxStyle}" />
+                                <Button Grid.Row="1" Grid.Column="2" Margin="0,2,8,2" Padding="10,4"
+                                        Content="瀏覽" Click="BrowseAiShortcut_Click" />
+                                <Button Grid.Row="1" Grid.Column="3" Margin="0,2,8,2" Padding="10,4"
+                                        Content="新增" Click="SaveAiShortcut_Click" />
+                                <Button Grid.Row="1" Grid.Column="4" Margin="0,2" Padding="10,4"
+                                        Content="刪除" Click="DeleteAiShortcut_Click" />
+                            </Grid>
+
+                            <DataGrid x:Name="dgAiShortcuts" Grid.Row="1" AutoGenerateColumns="False"
+                                    CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="名稱" Binding="{Binding Name}" Width="180" />
+                                    <DataGridTextColumn Header="路徑" Binding="{Binding Path}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="檔案搜尋">
+                        <TextBlock Margin="14" Background="{x:Null}" TextWrapping="Wrap"
+                                Text="檔案搜尋 skill 會在本機磁碟中依檔名搜尋，最多顯示 30 筆結果，單次搜尋上限 15 秒。這裡只保留功能說明，沒有額外設定。" />
+                    </TabItem>
+                </TabControl>
+            </TabItem>
             <TabItem BorderBrush="{DynamicResource PrimaryDarker}" Header="{ll:Str MOD管理}">
                 <Grid>
                     <Grid.ColumnDefinitions>

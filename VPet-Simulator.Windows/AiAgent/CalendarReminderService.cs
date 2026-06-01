@@ -29,6 +29,8 @@ internal sealed class CalendarReminderService : IDisposable
         timer.Elapsed += Timer_Elapsed;
     }
 
+    public GoogleCalendarClient CalendarClient => calendarClient;
+
     public void Start()
     {
         timer.Start();
@@ -91,9 +93,7 @@ internal sealed class CalendarReminderService : IDisposable
                 if (!remindedEvents.Add(key))
                     continue;
 
-                var text = minutes < 1
-                    ? $"\u884c\u7a0b\u63d0\u9192\uff1a{calendarEvent.Summary} \u73fe\u5728\u958b\u59cb\u3002"
-                    : $"\u884c\u7a0b\u63d0\u9192\uff1a{calendarEvent.Summary} \u5927\u7d04 {Math.Ceiling(minutes)} \u5206\u9418\u5f8c\u958b\u59cb\u3002";
+                var text = AiAgentReminderSpeech.BuildCalendarReminderText(calendarEvent.Summary, minutes);
 
                 mw.Dispatcher.Invoke(() => mw.Main.SayRnd(text, true, "Google Calendar"));
             }

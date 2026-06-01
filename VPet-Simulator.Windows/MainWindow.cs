@@ -454,7 +454,7 @@ namespace VPet_Simulator.Windows
 
         public void ShowSetting(int page = -1)
         {
-            if (page >= 0 && page <= 6)
+            if (page >= 0 && page <= 7)
                 winSetting.MainTab.SelectedIndex = page;
             winSetting.Show();
         }
@@ -1860,7 +1860,7 @@ namespace VPet_Simulator.Windows
                   m.Click += (x, y) =>
                   {
                       Main.ToolBar.Visibility = Visibility.Collapsed;
-                      winSetting.MainTab.SelectedIndex = 5;
+                      winSetting.MainTab.SelectedIndex = 6;
                       winSetting.Show();
                   };
                   Main.FunctionSpendHandle += lowStrength;

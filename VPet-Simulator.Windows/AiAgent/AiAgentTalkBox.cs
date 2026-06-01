@@ -71,9 +71,8 @@ internal sealed class AiAgentTalkBox : TalkBox
     {
         MainPlugin.MW.Dispatcher.Invoke(() =>
         {
-            var window = new AiAgentSettingsWindow(MainPlugin.MW);
-            window.Show();
-            window.Activate();
+            if (MainPlugin.MW is MainWindow mainWindow)
+                mainWindow.winSetting.SelectAiAgentSettings();
         });
     }
 }

@@ -12,7 +12,15 @@ internal sealed class OllamaSkillCall
         string time = "",
         string note = "",
         string target = "",
-        string query = "")
+        string query = "",
+        string date = "",
+        string startDatetime = "",
+        string endDatetime = "",
+        string description = "",
+        string keyword = "",
+        string eventId = "",
+        int daysAhead = 30,
+        bool deleteAll = false)
     {
         SkillName = string.IsNullOrWhiteSpace(skillName) ? "none" : skillName.Trim();
         Location = location?.Trim() ?? "";
@@ -22,6 +30,14 @@ internal sealed class OllamaSkillCall
         Note = note?.Trim() ?? "";
         Target = target?.Trim() ?? "";
         Query = query?.Trim() ?? "";
+        Date = date?.Trim() ?? "";
+        StartDatetime = startDatetime?.Trim() ?? "";
+        EndDatetime = endDatetime?.Trim() ?? "";
+        Description = description?.Trim() ?? "";
+        Keyword = keyword?.Trim() ?? "";
+        EventId = eventId?.Trim() ?? "";
+        DaysAhead = daysAhead <= 0 ? 30 : daysAhead;
+        DeleteAll = deleteAll;
     }
 
     public string SkillName { get; }
@@ -32,6 +48,14 @@ internal sealed class OllamaSkillCall
     public string Note { get; }
     public string Target { get; }
     public string Query { get; }
+    public string Date { get; }
+    public string StartDatetime { get; }
+    public string EndDatetime { get; }
+    public string Description { get; }
+    public string Keyword { get; }
+    public string EventId { get; }
+    public int DaysAhead { get; }
+    public bool DeleteAll { get; }
 
     public bool HasSkill => !SkillName.Equals("none", System.StringComparison.OrdinalIgnoreCase);
 }

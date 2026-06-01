@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using LinePutScript;
 using VPet_Simulator.Core;
 using VPet_Simulator.Windows.Interface;
 
@@ -13,6 +15,9 @@ internal static class AiAgentCommandRouter
         var input = Normalize(text);
         if (string.IsNullOrWhiteSpace(input))
             return false;
+
+        if (TryOpenDiyLink(mw, text, out response))
+            return true;
 
         if (ContainsAny(input, "\u9192\u4f86", "\u9192\u6765", "\u8d77\u5e8a", "\u4e0d\u8981\u7761", "\u5225\u7761", "\u522b\u7761", "\u505c\u6b62\u7761", "wake up"))
         {
@@ -144,6 +149,27 @@ internal static class AiAgentCommandRouter
             return "\u76ee\u524d\u627e\u4e0d\u5230\u53ef\u4ee5\u57f7\u884c\u7684\u9805\u76ee\u55b5\u3002";
 
         return mw.Main.StartWork(work) ? okText : "\u9019\u500b\u9805\u76ee\u73fe\u5728\u9084\u4e0d\u80fd\u958b\u59cb\u55b5\u3002";
+    }
+
+    private static bool TryOpenDiyLink(IMainWindow mw, string text, out string response)
+    {
+        response = "";
+        if (mw is not MainWindow mainWindow)
+            return false;
+
+        var links = new List<(string Name, string Content)>();
+        foreach (ISub sub in mainWindow.Set["diy"])
+            links.Add((sub.Name, sub.Info));
+
+        if (!AiAgentDiyLinkMatcher.TryFindTarget(text, links, out var name, out var content))
+            return false;
+
+        response = mw.Dispatcher.Invoke(() =>
+        {
+            mainWindow.RunDIY(content);
+            return "已開啟自訂連結：" + name;
+        });
+        return true;
     }
 
     private static bool ContainsAny(string text, params string[] values)

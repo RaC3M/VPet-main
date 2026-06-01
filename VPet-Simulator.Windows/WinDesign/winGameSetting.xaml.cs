@@ -242,6 +242,7 @@ namespace VPet_Simulator.Windows
             ShowModList();
             ListMod.SelectedIndex = 0;
             ShowMod((string)((ListBoxItem)ListMod.SelectedItem).Content);
+            InitializeAiAgentSettings();
 
             voicetimer = new DispatcherTimer()
             {
@@ -273,9 +274,11 @@ namespace VPet_Simulator.Windows
             ListMenuItems.Add(listmenuswith("自动超模MOD优化", 4, swAutoCal));
             ListMenuItems.Add(listmenuswith("诊断与反馈", 4, RBDiagnosisYES));
 
-            ListMenuItems.Add(listmenuswith("MOD管理", 5, ButtonOpenModFolder));
+            ListMenuItems.Add(listmenuswith("AI", 5, tbAiOverviewStatus));
 
-            ListMenuItems.Add(listmenuswith("关于", 6, ImageWHY));
+            ListMenuItems.Add(listmenuswith("MOD管理", 6, ButtonOpenModFolder));
+
+            ListMenuItems.Add(listmenuswith("关于", 7, ImageWHY));
 
             foreach (var v in ListMenuItems)
                 ListMenu.Items.Add(v);
@@ -311,7 +314,7 @@ namespace VPet_Simulator.Windows
             var lbi = new ListBoxItem() { Content = content.Translate() };
             lbi.PreviewMouseLeftButtonDown += (_, _) =>
             {
-                if (page >= 0 && page <= 6)
+                if (page >= 0 && page <= 7)
                     MainTab.SelectedIndex = page;
                 if (page == 2)
                 {
@@ -1466,6 +1469,9 @@ namespace VPet_Simulator.Windows
                     {
                         RHashCheck.Text = "失败".Translate();
                     }
+                    break;
+                case 5:
+                    RefreshAiAgentData();
                     break;
             }
         }

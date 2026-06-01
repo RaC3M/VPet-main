@@ -53,8 +53,7 @@ internal sealed class LocalReminderService : IDisposable
             var dueReminders = store.MarkDueRemindersTriggered(DateTime.Now);
             foreach (var reminder in dueReminders)
             {
-                var note = string.IsNullOrWhiteSpace(reminder.Note) ? "" : "\n" + reminder.Note;
-                var text = "\u672c\u6a5f\u63d0\u9192\uff1a" + reminder.Title + note;
+                var text = AiAgentReminderSpeech.BuildLocalReminderText(reminder.Title, reminder.Note);
                 mw.Dispatcher.Invoke(() => mw.Main.SayRnd(text, true, "AI Agent"));
             }
         }

@@ -1,3 +1,5 @@
+using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VPet_Simulator.Windows.Interface;
@@ -8,6 +10,7 @@ internal sealed class AiAgentSkillExecutor
 {
     private readonly IMainWindow mw;
     private readonly CalendarReminderService reminderService;
+    private readonly GoogleCalendarClient calendarClient;
     private readonly AiAgentPetStatusBuilder petStatusBuilder;
     private readonly WeatherSkillClient weatherClient = new();
     private readonly AiAgentMemoryStore memoryStore = new();
@@ -19,6 +22,7 @@ internal sealed class AiAgentSkillExecutor
     {
         this.mw = mw;
         this.reminderService = reminderService;
+        calendarClient = reminderService.CalendarClient;
         this.petStatusBuilder = petStatusBuilder;
     }
 
@@ -31,6 +35,16 @@ internal sealed class AiAgentSkillExecutor
         {
             "get_pet_status" => petStatusBuilder.BuildStatusSummary(),
             "get_calendar_events" => await reminderService.BuildCalendarSummaryAsync(cancellationToken),
+            "calendar_list_today" => await calendarClient.ListTodayEventsAsync(cancellationToken),
+            "calendar_list_by_date" => await calendarClient.ListEventsByDateAsync(skillCall.Date, cancellationToken),
+            "calendar_add_event" => await calendarClient.AddCalendarEventAsync(
+                string.IsNullOrWhiteSpace(skillCall.Title) ? userText : skillCall.Title,
+                skillCall.StartDatetime,
+                skillCall.EndDatetime,
+                string.IsNullOrWhiteSpace(skillCall.Description) ? skillCall.Note : skillCall.Description,
+                cancellationToken),
+            "calendar_search_events" => await calendarClient.SearchEventsAsync(GetCalendarKeyword(skillCall, userText), skillCall.DaysAhead, cancellationToken),
+            "calendar_delete_event" => await DeleteCalendarEventAsync(skillCall, cancellationToken),
             "get_weather" => await weatherClient.GetWeatherAsync(string.IsNullOrWhiteSpace(skillCall.Location) ? userText : skillCall.Location, cancellationToken),
             "remember_user_fact" => memoryStore.Remember(string.IsNullOrWhiteSpace(skillCall.Fact) ? userText : skillCall.Fact),
             "recall_memory" => memoryStore.Recall(),
@@ -57,6 +71,62 @@ internal sealed class AiAgentSkillExecutor
         return string.IsNullOrWhiteSpace(result)
             ? ""
             : $"Skill `{skillCall.SkillName}` \u57f7\u884c\u7d50\u679c\uff1a\n{result}";
+    }
+
+    private async Task<string> DeleteCalendarEventAsync(OllamaSkillCall skillCall, CancellationToken cancellationToken)
+    {
+        if (skillCall.DeleteAll)
+        {
+            if (!string.IsNullOrWhiteSpace(skillCall.Date))
+                return await calendarClient.DeleteCalendarEventsByDateAsync(skillCall.Date, cancellationToken);
+
+            var deleteKeyword = GetCalendarKeyword(skillCall, "");
+            return string.IsNullOrWhiteSpace(deleteKeyword)
+                ? "請告訴我要刪除哪一天，或要刪除哪個關鍵字的所有行程。"
+                : await calendarClient.DeleteCalendarEventsByKeywordAsync(deleteKeyword, skillCall.DaysAhead, cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(skillCall.EventId))
+            return await calendarClient.DeleteCalendarEventAsync(skillCall.EventId, cancellationToken);
+
+        var keyword = GetCalendarKeyword(skillCall, "");
+        if (string.IsNullOrWhiteSpace(keyword))
+            return "請先提供 event_id，或提供要刪除事件的明確關鍵字。";
+
+        var matches = await calendarClient.SearchEventItemsAsync(keyword, skillCall.DaysAhead, cancellationToken);
+        if (matches.Count == 0)
+            return $"找不到包含「{keyword}」的未來行程，沒有刪除任何事件。";
+        if (matches.Count > 1)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("找到多個候選事件，請指定要刪除的 event_id：");
+            foreach (var calendarEvent in matches)
+                builder.AppendLine($"- event_id: {calendarEvent.Id} | {FormatEventTime(calendarEvent)} | {calendarEvent.Summary}");
+            return builder.ToString().TrimEnd();
+        }
+
+        return await calendarClient.DeleteCalendarEventAsync(matches[0].Id, cancellationToken);
+    }
+
+    private static string GetCalendarKeyword(OllamaSkillCall skillCall, string fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(skillCall.Keyword))
+            return skillCall.Keyword;
+        if (!string.IsNullOrWhiteSpace(skillCall.Query))
+            return skillCall.Query;
+        if (!string.IsNullOrWhiteSpace(skillCall.Title))
+            return skillCall.Title;
+        return fallback;
+    }
+
+    private static string FormatEventTime(CalendarEventInfo calendarEvent)
+    {
+        if (calendarEvent.IsAllDay)
+            return "全天";
+
+        return calendarEvent.Start.Date == calendarEvent.End.Date
+            ? $"{calendarEvent.Start:MM/dd HH:mm}-{calendarEvent.End:HH:mm}"
+            : $"{calendarEvent.Start:MM/dd HH:mm}-{calendarEvent.End:MM/dd HH:mm}";
     }
 
     private string RunPetCommand(string command)

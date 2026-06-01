@@ -65,6 +65,9 @@
 		<AssemblyAttribute Include="System.Reflection.AssemblyTrademarkAttribute">
 			<_Parameter1>exLB.org</_Parameter1>
 		</AssemblyAttribute>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+			<_Parameter1>VPet-Simulator.Windows.Tests</_Parameter1>
+		</AssemblyAttribute>
 	</ItemGroup>
 	<ItemGroup>
 		<Compile Remove="GameAssets\**" />
