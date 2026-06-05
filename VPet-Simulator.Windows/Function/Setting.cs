@@ -238,6 +238,16 @@ namespace VPet_Simulator.Windows
                 this["gameconfig"].SetInt("intercycle", value);
             }
         }
+        public int PomodoroFocusMinutes
+        {
+            get => Math.Max(this["gameconfig"].GetInt("pomodorofocus", 25), 1);
+            set => this["gameconfig"].SetInt("pomodorofocus", Math.Max(value, 1));
+        }
+        public int PomodoroBreakMinutes
+        {
+            get => Math.Max(this["gameconfig"].GetInt("pomodorobreak", 5), 1);
+            set => this["gameconfig"].SetInt("pomodorobreak", Math.Max(value, 1));
+        }
         /// <summary>
         /// 计算间隔 (秒)
         /// </summary>

@@ -737,6 +737,68 @@
                         </Grid>
                         <TextBlock Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
                                 Background="{x:Null}" TextWrapping="Wrap">
+                            <Run FontSize="18" FontWeight="Bold" Text="番茄鐘設定" /><LineBreak />
+                            <Run Text="設定番茄鐘的專注與休息時間" />
+                        </TextBlock>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="15" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="35" />
+                                <RowDefinition Height="35" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="40" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="專注時間" />
+                            <Grid Grid.Row="0" Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="PomodoroFocusSlider" VerticalAlignment="Center" IsSnapToTickEnabled="True"
+                                        LargeChange="5" Maximum="120" Minimum="1" SmallChange="1"
+                                        Style="{DynamicResource StandardSliderStyle}" TickFrequency="1"
+                                        ValueChanged="PomodoroFocusSlider_ValueChanged" Value="25" />
+                                <TextBlock Grid.Column="1" Width="80" Margin="10,0,0,0" VerticalAlignment="Center"
+                                        Background="{x:Null}" FontSize="18" FontWeight="Bold"
+                                        Foreground="{DynamicResource DARKPrimaryDarker}"
+                                        Text="{Binding ElementName=PomodoroFocusSlider, Path=Value, StringFormat={}{0:f0} 分鐘}" />
+                            </Grid>
+                            <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="休息時間" />
+                            <Grid Grid.Row="1" Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="PomodoroBreakSlider" VerticalAlignment="Center" IsSnapToTickEnabled="True"
+                                        LargeChange="5" Maximum="60" Minimum="1" SmallChange="1"
+                                        Style="{DynamicResource StandardSliderStyle}" TickFrequency="1"
+                                        ValueChanged="PomodoroBreakSlider_ValueChanged" Value="5" />
+                                <TextBlock Grid.Column="1" Width="80" Margin="10,0,0,0" VerticalAlignment="Center"
+                                        Background="{x:Null}" FontSize="18" FontWeight="Bold"
+                                        Foreground="{DynamicResource DARKPrimaryDarker}"
+                                        Text="{Binding ElementName=PomodoroBreakSlider, Path=Value, StringFormat={}{0:f0} 分鐘}" />
+                            </Grid>
+                            <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="目前狀態" />
+                            <TextBlock x:Name="tbPomodoroStatus" Grid.Row="2" Grid.Column="2" Margin="0,6"
+                                    Background="{x:Null}" TextWrapping="Wrap" />
+                            <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                                    Margin="0,6,0,0">
+                                <Button Margin="0,0,8,0" Padding="12,4" Content="開始"
+                                        Click="StartPomodoro_Click" />
+                                <Button Margin="0,0,8,0" Padding="12,4" Content="暫停"
+                                        Click="PausePomodoro_Click" />
+                                <Button Margin="0,0,8,0" Padding="12,4" Content="繼續"
+                                        Click="ResumePomodoro_Click" />
+                                <Button Padding="12,4" Content="停止"
+                                        Click="StopPomodoro_Click" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Background="{x:Null}" TextWrapping="Wrap">
                             <Run FontSize="18" FontWeight="Bold" Text="{ll:Str 操作设置}" /><LineBreak />
                             <Run Text="{ll:Str 游戏操作相关设置}" />
                         </TextBlock>
@@ -946,13 +1008,14 @@
                                         <RowDefinition Height="35" />
                                         <RowDefinition Height="35" />
                                         <RowDefinition Height="35" />
+                                        <RowDefinition Height="35" />
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="AI Provider" />
                                     <ComboBox x:Name="cbAiProvider" Grid.Row="0" Grid.Column="2" Margin="0,2"
                                             Style="{DynamicResource StandardComboBoxStyle}">
                                         <ComboBoxItem Content="Ollama" Tag="ollama" />
-                                        <ComboBoxItem Content="OpenAI" Tag="openai" />
+                                        <ComboBoxItem Content="Remote API" Tag="remote_api" />
                                     </ComboBox>
 
                                     <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Ollama 自動啟動" />
@@ -966,30 +1029,28 @@
 
                                     <TextBlock Grid.Row="3" VerticalAlignment="Center" Text="Ollama Model" />
                                     <ComboBox x:Name="cbAiOllamaModel" Grid.Row="3" Grid.Column="2" Margin="0,2"
-                                            IsEditable="True" IsTextSearchEnabled="False"
-                                            Style="{DynamicResource StandardComboBoxStyle}">
-                                        <ComboBoxItem Content="Qwen2.5 1.5B - light" Tag="qwen2.5:1.5b" />
-                                        <ComboBoxItem Content="Qwen2.5 3B - balanced small" Tag="qwen2.5:3b" />
-                                        <ComboBoxItem Content="Qwen2.5 7B - recommended Chinese" Tag="qwen2.5:7b" />
-                                        <ComboBoxItem Content="Qwen2.5 14B - stronger, heavier" Tag="qwen2.5:14b" />
-                                        <ComboBoxItem Content="Llama 3.2 1B - very light" Tag="llama3.2:1b" />
-                                        <ComboBoxItem Content="Llama 3.2 3B - light agent" Tag="llama3.2:3b" />
-                                        <ComboBoxItem Content="Gemma 3 1B - very light" Tag="gemma3:1b" />
-                                        <ComboBoxItem Content="Gemma 3 4B - balanced" Tag="gemma3:4b" />
-                                        <ComboBoxItem Content="Gemma 3 12B - stronger, heavier" Tag="gemma3:12b" />
-                                    </ComboBox>
+                                            IsEditable="False" IsTextSearchEnabled="True"
+                                            SelectionChanged="AiOllamaModel_SelectionChanged"
+                                            Style="{DynamicResource StandardComboBoxStyle}" />
 
-                                    <TextBlock Grid.Row="4" VerticalAlignment="Center" Text="OpenAI API Key" />
-                                    <PasswordBox x:Name="pbAiOpenAiKey" Grid.Row="4" Grid.Column="2" Margin="0,2" />
-
-                                    <TextBlock Grid.Row="5" VerticalAlignment="Center" Text="OpenAI Model" />
-                                    <TextBox x:Name="tbAiOpenAiModel" Grid.Row="5" Grid.Column="2" Margin="0,2"
+                                    <TextBlock Grid.Row="4" VerticalAlignment="Center" Text="Remote API URL" />
+                                    <TextBox x:Name="tbAiRemoteApiBaseUrl" Grid.Row="4" Grid.Column="2" Margin="0,2"
                                             Style="{DynamicResource StandardTextBoxStyle}" />
 
-                                    <StackPanel Grid.Row="6" Grid.Column="2" Orientation="Horizontal"
+                                    <TextBlock Grid.Row="5" VerticalAlignment="Center" Text="Remote API Key" />
+                                    <PasswordBox x:Name="pbAiOpenAiKey" Grid.Row="5" Grid.Column="2" Margin="0,2" />
+
+                                    <TextBlock Grid.Row="6" VerticalAlignment="Center" Text="Remote API Model" />
+                                    <ComboBox x:Name="cbAiRemoteApiModel" Grid.Row="6" Grid.Column="2" Margin="0,2"
+                                            IsEditable="True" IsTextSearchEnabled="False"
+                                            Style="{DynamicResource StandardComboBoxStyle}" />
+
+                                    <StackPanel Grid.Row="7" Grid.Column="2" Orientation="Horizontal"
                                             HorizontalAlignment="Right" Margin="0,8,0,0">
                                         <Button Margin="0,0,8,0" Padding="12,6" Content="下載模型"
                                                 Click="DownloadAiOllamaModel_Click" />
+                                        <Button Margin="0,0,8,0" Padding="12,6" Content="刷新模型"
+                                                Click="RefreshAiModels_Click" />
                                         <Button Margin="0,0,8,0" Padding="12,6" Content="測試 AI"
                                                 Click="TestAiAgent_Click" />
                                         <Button Padding="12,6" Content="儲存 AI 設定"
@@ -1112,13 +1173,14 @@
                                     <ColumnDefinition Width="80" />
                                     <ColumnDefinition />
                                     <ColumnDefinition Width="75" />
+                                    <ColumnDefinition Width="95" />
                                     <ColumnDefinition Width="75" />
                                     <ColumnDefinition Width="75" />
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Grid.Row="0" VerticalAlignment="Center" Text="名稱" />
                                 <TextBox x:Name="tbAiShortcutName" Grid.Row="0" Grid.Column="1"
-                                        Grid.ColumnSpan="4" Margin="0,2"
+                                        Grid.ColumnSpan="5" Margin="0,2"
                                         Style="{DynamicResource StandardTextBoxStyle}" />
 
                                 <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="路徑" />
@@ -1127,8 +1189,10 @@
                                 <Button Grid.Row="1" Grid.Column="2" Margin="0,2,8,2" Padding="10,4"
                                         Content="瀏覽" Click="BrowseAiShortcut_Click" />
                                 <Button Grid.Row="1" Grid.Column="3" Margin="0,2,8,2" Padding="10,4"
-                                        Content="新增" Click="SaveAiShortcut_Click" />
+                                        Content="選資料夾" Click="BrowseAiShortcutFolder_Click" />
                                 <Button Grid.Row="1" Grid.Column="4" Margin="0,2" Padding="10,4"
+                                        Content="新增" Click="SaveAiShortcut_Click" />
+                                <Button Grid.Row="1" Grid.Column="5" Margin="8,2,0,2" Padding="10,4"
                                         Content="刪除" Click="DeleteAiShortcut_Click" />
                             </Grid>
 

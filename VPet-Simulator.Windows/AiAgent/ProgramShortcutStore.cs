@@ -10,6 +10,14 @@ namespace VPet_Simulator.Windows.AiAgent;
 internal sealed class ProgramShortcutStore
 {
     private const string FileName = "AiAgentProgramShortcuts.json";
+    private static readonly HashSet<string> LaunchableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".exe",
+        ".lnk",
+        ".bat",
+        ".cmd",
+        ".ps1"
+    };
 
     public List<ProgramShortcutInfo> Load()
     {
@@ -46,6 +54,55 @@ internal sealed class ProgramShortcutStore
         }
         Save(shortcuts);
         return "\u5df2\u5132\u5b58\u7a0b\u5f0f\u6377\u5f91\uff1a" + name;
+    }
+
+    public static List<ProgramShortcutInfo> FindLaunchableFiles(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+            return new List<ProgramShortcutInfo>();
+
+        return EnumerateFiles(folderPath)
+            .Where(path => LaunchableExtensions.Contains(Path.GetExtension(path)))
+            .Select(path => new ProgramShortcutInfo
+            {
+                Name = Path.GetFileNameWithoutExtension(path),
+                Path = path
+            })
+            .OrderBy(file => file.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(file => file.Path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IEnumerable<string> EnumerateFiles(string folderPath)
+    {
+        IEnumerable<string> files;
+        try
+        {
+            files = Directory.EnumerateFiles(folderPath);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var file in files)
+            yield return file;
+
+        IEnumerable<string> directories;
+        try
+        {
+            directories = Directory.EnumerateDirectories(folderPath);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var directory in directories)
+        {
+            foreach (var file in EnumerateFiles(directory))
+                yield return file;
+        }
     }
 
     public void Delete(string name)

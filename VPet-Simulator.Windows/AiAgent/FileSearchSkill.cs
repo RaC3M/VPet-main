@@ -27,6 +27,22 @@ internal sealed class FileSearchSkill
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
 
+        var searchedRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in GetPrioritySearchRoots())
+        {
+            if (timeoutCts.IsCancellationRequested || results.Count >= 30)
+                break;
+
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+                continue;
+
+            var fullRoot = Path.GetFullPath(root);
+            if (!searchedRoots.Add(fullRoot))
+                continue;
+
+            SearchDirectory(fullRoot, query, results, timeoutCts.Token, stopwatch);
+        }
+
         foreach (var drive in DriveInfo.GetDrives())
         {
             if (timeoutCts.IsCancellationRequested || results.Count >= 30)
@@ -37,7 +53,9 @@ internal sealed class FileSearchSkill
                 if (!drive.IsReady)
                     continue;
 
-                SearchDirectory(drive.RootDirectory.FullName, query, results, timeoutCts.Token, stopwatch);
+                var fullRoot = Path.GetFullPath(drive.RootDirectory.FullName);
+                if (searchedRoots.Add(fullRoot))
+                    SearchDirectory(fullRoot, query, results, timeoutCts.Token, stopwatch);
             }
             catch
             {
@@ -55,6 +73,17 @@ internal sealed class FileSearchSkill
         if (stopwatch.Elapsed >= TimeSpan.FromSeconds(15))
             builder.AppendLine("\u641c\u5c0b\u5df2\u9054 15 \u79d2\u4e0a\u9650\uff0c\u5df2\u505c\u6b62\u3002");
         return builder.ToString();
+    }
+
+    private static IEnumerable<string> GetPrioritySearchRoots()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        yield return Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        yield return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        yield return Path.Combine(userProfile, "Downloads");
+        yield return Path.Combine(userProfile, "OneDrive");
+        yield return Path.Combine(userProfile, "OneDrive", "Desktop");
+        yield return Path.Combine(userProfile, "OneDrive", "Documents");
     }
 
     private static void SearchDirectory(string root, string query, List<string> results, CancellationToken cancellationToken, Stopwatch stopwatch)

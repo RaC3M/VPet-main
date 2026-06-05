@@ -1,173 +1,242 @@
-# VPet-Simulator
+# VPet AI Pet Edition
 
-简体中文 | [繁體中文](./README_zht.md) | [English](./README_en.md) | [日本語](./README_ja.md)
+這是一個基於開源 `VPet-Simulator` 改造的桌寵模擬器版本，重點不是單純把 LLM 接進聊天框，而是把桌寵行為、工具能力、記憶與對話流程整合成一套可擴充的本地 AI Agent 架構。
 
-虚拟桌宠模拟器 一个开源的桌宠软件, 可以内置到任何WPF应用程序
+目前版本預設以本地 `Ollama` 為主要模型提供者，遠端模型只保留 OpenAI-compatible API 介面，方便之後替換不同供應商或模型。
 
-![主图](README.assets/%E4%B8%BB%E5%9B%BE.png)
+## 專案定位
 
-获取虚拟桌宠模拟器 [OnSteam(免费)](https://store.steampowered.com/app/1920960/VPet) 或 通过[Nuget](https://www.nuget.org/packages/VPet-Simulator.Core)内置到你的WPF应用程序
+- 桌面寵物模擬器
+- LLM 聊天助手
+- 本地優先的 AI Agent
+- 可接 UI / Skill / Tool 的桌寵改造版
 
-## 虚拟桌宠模拟器 详细介绍
+這不是原版 VPet 的純鏡像，而是針對「桌寵 + 本地 AI 助手」方向持續改造的版本。
 
-虚拟桌宠模拟器是一款桌宠软件,支持各种互动投喂等. 开源免费并且支持创意工坊.
+## 來源與致謝
 
-反正免费为啥不试试呢(
+本專案是基於開源專案 `VPet-Simulator` 進行改造。
 
-该游戏为 [虚拟主播模拟器](https://store.steampowered.com/app/1352140/_/) 内置桌宠(教程)程序独立而来, 如果喜欢的话欢迎添加 [虚拟主播模拟器](https://store.steampowered.com/app/1352140/_/) 至愿望单
+- 原始專案：[`LorisYounger/VPet`](https://github.com/LorisYounger/VPet)
+- 本專案保留上游授權，並在此基礎上新增 AI Agent、聊天管線、工具整合與設定頁能力
 
-### 超多的互动和动画
+如果你要分發、商用或再改造，請先確認原始授權與上游資源使用限制。
 
-多达 32(种) * 4(状态) * 3(类型) 种动画, *注:部分种类没有生病状态或循环等内容,实际动画数量会偏少*
+## 目前功能
 
-#### 一些动画例子:
+### 1. 桌寵聊天與人格
 
-##### 摸头
+- 支援繁體中文聊天
+- 桌寵人格已抽離為獨立 `PersonalitySkill`
+- 回覆風格會依情緒、意圖、模式調整
+- 避免每句都硬裝可愛，改成偏自然、口語、朋友感
 
-![ss0](README.assets/ss0.gif)
+### 2. 顯式 ChatPipeline
 
-##### 提起
+聊天流程已重構為固定 Skill 鏈：
 
-![ss4](README.assets/ss4.gif)![ss4](README.assets/ss8.gif)
+```text
+user_input
+-> conversation_context_builder
+-> short_term_memory.attach
+-> emotion_skill
+-> intent_reasoning_skill
+-> memory_skill.retrieve
+-> tool_skill.plan
+-> tool_skill.execute
+-> personality_skill
+-> style_skill
+-> response_reasoning_skill
+-> final_response
+-> short_term_memory.update
+-> memory_skill.update
+-> proactive_skill.update_state
+```
 
-##### 爬墙
+第一版重點：
 
-![ss7](README.assets/ss7.gif)
+- `AiAgentTalkBox` 變薄，只負責接收輸入、呼叫 pipeline、顯示結果
+- 各 Skill 有明確介面，方便後續替換或擴充
+- 原本散在 `TalkBox`、provider client 裡的邏輯已拆出
 
-### 免费
+### 3. 記憶系統
 
-该游戏完全免费! 反正不要钱,试试不要紧(<br/>
-该游戏主要目的是宣传下 [虚拟主播模拟器](https://store.steampowered.com/app/1352140/_/), 这是虚拟主播模拟器里面的桌宠.
+- 結構化長期記憶
+- 短期對話記憶
+- 最近 10 句 history 會進入聊天上下文
+- 可保存使用者偏好、專案、對話筆記、主動互動狀態
 
-### 开源
+目前實際使用的記憶欄位：
 
-该游戏在github上开源, 欢迎提出自己的想法,创意或者参与开发!<br/>
-您还可以修改代码来制作自己专属的桌宠!(虽然说大部分内容都支持创意工坊,不需要修改代码)<br/>
-项目地址: https://github.com/LorisYounger/VPet
+- `Profile`
+- `Preferences`
+- `Projects`
+- `ConversationNotes`
+- `ProactiveState`
 
-### 支持创意工坊
+已保留但暫未深入行為化的欄位：
 
-该游戏支持创意工坊,您可以制作别的人物桌宠动画或者互动,并上传至创意工坊分享给更多人使用.
+- `RelationshipState`
+- `EmotionHistory`
+- `InteractionStats`
 
-MOD制作器:  https://github.com/LorisYounger/VPet.ModMaker
+### 4. 意圖推理與回覆策略
 
-创意工坊支持添加/修改以下内容
+- `IntentReasoningSkill` 會推理主要意圖、次要意圖、隱含需求、是否需要工具
+- `ResponseReasoningSkill` 會決定先共感、先解題、是否追問、是否整理工具結果
+- 抱怨、卡程式、閒聊、查行程、下指令，走的回覆策略不同
 
-* 桌宠动画
-* 物品/食物/饮料等
-* 自定义桌宠工作
-* 说话文本
-* 主题
-* 代码插件 - 通过编写代码给桌宠添加内容
-  * 添加新的动画逻辑/显示方案 (eg: l2d/spine 等)
-  * 添加新功能 (闹钟/记事板等等)
-  * 几乎无所不能, 示例例子参见 [VPet.Plugin.Demo](https://github.com/LorisYounger/VPet.Plugin.Demo)
+### 5. 工具整合
 
+既有工具能力保留，並包成 `ToolSkill`：
 
-### 反馈&建议&联系我们
+- 天氣查詢
+- 地震快訊 / 地震查詢
+- Google Calendar 列出 / 新增 / 搜尋 / 刪除 / 摘要
+- 本機提醒
+- 開啟白名單程式
+- 搜尋檔案
+- 番茄鐘
+- 桌寵動作控制
 
-如果有建议或者意见,可以在Steam商店评论/社区,Github Issue,虚拟主播模拟器贴吧,虚拟桌宠模拟器MODDer群(907101442)或者邮件联系我 [mailto:service@exlb.net](mailto:service@exlb.net)
+### 6. 天氣與地震
 
-## 软件结构
+- 天氣改接中央氣象署開放資料 API
+- 支援依目前位置查詢明日天氣
+- 若未明確指定地點，會優先使用 `VPET_DEFAULT_LOCATION`
+- 若未設定預設位置，會退回以 IP 估算目前城市
+- 支援地震資料查詢
+- 支援背景地震監看、桌寵緊張動作與 Windows 通知
 
-* **VPet-Simulator.Windows: 适用于桌面端的虚拟桌宠模拟器**
-  * *Function 功能性代码存放位置*
-    * CoreMOD Mod管理类
-    * MWController 窗体控制器
-  
-  * *WinDesign 窗口和UI设计
-    * winBetterBuy 更好买窗口
-    * winCGPTSetting ChatGPT 设置
-    * winSetting 软件设置/MOD 窗口
-    * winConsole 开发控制台
-    * winGameSetting 游戏设置
-    * winReport 反馈中心
-  
-  * MainWindows 主窗体,存放和展示Core
-  * PetHelper 快速切换小标
-* **VPet-Simulator.Tool: 方便制作MOD的工具(eg:图片帧生成)**
-* **VPet-Simulator.Core: 软件核心 方便内置到任何WPF应用程序(例如:VUP-Simulator)**
-  * Handle 接口与控件
-    * IController 窗体控制器 (调用相关功能和设置,例如移动到侧边等)
-    * Function 通用功能
-    * GameCore 游戏核心,包含各种数据等内容
-    * GameSave 游戏存档
-    * IFood 食物/物品接口
-    * PetLoader 宠物图形加载器
-  * Graph 图形渲染
-    * IGraph 动画基本接口
-    * GraphCore 动画显示核心
-    * GraphHelper 动画帮助类
-    * GraphInfo 动画信息
-    * FoodAnimation 食物动画 支持显示前中后3层夹心动画 不一定只用于食物,只是叫这个名字
-    * PNGAnimation 桌宠动态动画组件
-    * Picture 桌宠静态动画组件
-  * Display 显示
-    * basestyle/Theme 基本风格主题
-    * Main.xaml 核心显示部件
-      * MainDisplay 核心显示方法
-      * MainLogic 核心显示逻辑
-    * ToolBar 点击人物时候的工具栏
-    * MessageBar 人物说话时候的说话栏
-    * WorkTimer 工作时钟
+### 7. 模型與 Provider 設定
 
-## 参与开发
+- 預設 provider：`Ollama`
+- Ollama 模型清單直接從本機 `/api/tags` 取得
+- 不再提供寫死的推薦模型清單
+- 保留 remote OpenAI-compatible API 介面
+- 可由 API base URL 讀取 `/v1/models`
 
-欢迎参与虚拟桌宠模拟器的开发! 为保证代码可维护度和游戏性,如果想要开发新的功能,请先[邮件联系](mailto:zoujin.dev@exlb.org)或发[Issues](https://github.com/LorisYounger/VPet/issues)我想要添加的功能/玩法, 以确保该功能/玩法适用于虚拟桌宠模拟器. 以免未来提交时因不合适被拒(而造成代码浪费)<br/>
-如果是修复错误或者BUG,无需联系我,修好后直接PR即可
+### 8. 本地優先
 
-当想法通过后,您可以通过 [fork](https://github.com/LorisYounger/VPet/fork) 功能拷贝代码至自己的github以方便编写自己的代码, 编写完毕后通过[pull requests](https://github.com/LorisYounger/VPet/compare) 提交<br/>
-如果您想法没有被通过,也可以另起炉灶,写个不同版本功能的桌宠软件. 但需遵守 [Apache License 2.0](https://github.com/LorisYounger/VPet/blob/main/LICENSE) 与 [动画版权声明与授权](https://github.com/LorisYounger/VPet#%E5%8A%A8%E7%94%BB%E7%89%88%E6%9D%83%E5%A3%B0%E6%98%8E%E4%B8%8E%E6%8E%88%E6%9D%83)
-注: 一般来讲, 添加新功能都可以通过编写代码插件MOD实现, 详情请参见 [VPet.Plugin.Demo](https://github.com/LorisYounger/VPet.Plugin.Demo)
+- 預設走本地模型
+- 遠端 API 只保留介面，不綁定單一服務商
+- 適合想把桌寵當成個人桌面助手，而不是單純雲端聊天視窗的人
 
-我可能会对您的提交的代码进行修改,删减等以确保该功能/玩法适用于虚拟桌宠模拟器.
+## 主要改造重點
 
+相較於原版 VPet，這個版本新增或明顯調整了以下方向：
 
-感谢以下参与的开发和翻译人员
+- 將聊天流程從 UI 元件內抽離成 `ChatPipeline`
+- 將人格 prompt 從模型 client 中抽離
+- 將記憶升級為結構化 schema
+- 新增短期記憶 history
+- 新增意圖推理與回覆策略層
+- 工具從隱式呼叫改成顯式 plan / execute
+- 將 Ollama 模型選擇改成讀本機安裝清單
+- 將天氣來源改接中央氣象署
+- 新增地震快訊、桌寵警示動作與系統通知
 
-<a href="https://github.com/LorisYounger/VPet/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=LorisYounger/VPet" />
-</a>
+## 專案結構
 
-和提供社区翻译和更多内容的创意工坊人员
+核心 AI 相關程式主要集中在：
 
-## 动画版权声明与授权
+- `VPet-Simulator.Windows/AiAgent`
+- `VPet-Simulator.Windows/AiAgent/Chat`
+- `VPet-Simulator.Windows.Tests`
+- `docs/ai-agent-major-changes.md`
 
-在github中 [桌宠动画文件](https://github.com/LorisYounger/VPet/tree/main/VPet-Simulator.Windows/mod/0000_core/pet/vup) 动画版权归 [虚拟主播模拟器制作组](https://www.exlb.net/VUP-Simulator)所有, 当使用本类库时,您可能需要自行准备动画文件,或遵循以下协议
+大致分工如下：
 
-> **注 **
-> 本动画声明仅限于桌宠自带的动画, 若有画师/开发者画自己的动画适配给桌宠,并不遵循用本声明
+- `AiAgentTalkBox.cs`：聊天 UI 入口
+- `Chat/AiChatSkills.cs`：ChatPipeline 與各 Skill 實作
+- `Chat/AiChatModels.cs`：pipeline 使用的資料模型
+- `AiAgentSkillExecutor.cs`：工具執行入口
+- `AiAgentMemoryStore.cs`：結構化記憶存取
+- `OllamaAgentClient.cs`：本地模型生成
+- `OpenAiAgentClient.cs`：OpenAI-compatible remote API 生成
+- `WeatherSkillClient.cs`：天氣查詢
+- `EarthquakeSkillClient.cs`：地震查詢
+- `LocationSkillClient.cs`：位置解析
 
-### 非商用用途授权
+## 執行需求
 
-* 需要向用户告知动画文件来源并提供访问 [该页面](https://github.com/LorisYounger/VPet) 的链接
-* 当您完成以上要求后,您可以免费使用动画文件
+- Windows
+- .NET SDK
+- `Ollama`（建議，作為本地模型 provider）
 
-### 商用用途授权
+如果要使用完整外部能力，還需要自行準備：
 
-* 第一次使用时需弹窗并醒目的向用户告知动画文件来源并提供访问 [该页面](https://github.com/LorisYounger/VPet) 的链接
-* 在相应页面(用户可以快捷访问)向用户告知动画文件来源并提供访问 [该页面](https://github.com/LorisYounger/VPet) 的链接
+- Google Calendar OAuth 憑證
+- 中央氣象署 API Key
 
-* 禁止通过出售动画文件进行盈利
-* 请[邮件联系](mailto:zoujin.dev@exlb.org)我
-* 当您完成以上要求后,您可以免费使用动画文件
+## 重要設定
 
-### 分发动画文件
+常用環境變數：
 
-* 需要告知以上所有授权信息
-* 需要提供访问 [该页面](https://github.com/LorisYounger/VPet) 的链接
-* 分发动画文件时禁止任何付费/收费行为
+```text
+VPET_CWA_API_KEY
+VPET_DEFAULT_LOCATION
+VPET_REMOTE_API_BASE_URL
+VPET_REMOTE_API_KEY
+VPET_REMOTE_API_MODEL
+```
 
-### 图片版权声明与授权
+說明：
 
-* 程序内置图片 版权授权同上
-* Zip 照片图库禁止商用
+- `VPET_CWA_API_KEY`：中央氣象署天氣 / 地震 API
+- `VPET_DEFAULT_LOCATION`：固定預設地點，例如 `臺中市`
+- `VPET_REMOTE_API_BASE_URL`：遠端 OpenAI-compatible API 位址
+- `VPET_REMOTE_API_KEY`：遠端 API 金鑰
+- `VPET_REMOTE_API_MODEL`：遠端模型 id
 
-## 桌面端部署方法
+## 建置與啟動
 
-1. 下载本项目, 通过VisualStudio打开 `VPet.sln` 文件
-2. 在生成栏中, 选择 位数为 `x64` 和生成项目为 `Vpet-Simulator.Windows`
-   ![image-20230208004330895](README.assets/image-20230208004330895.png)
-3. 点击启动, 如果一切正常则会报错 `缺少模组Core,无法启动桌宠`
-4. 以管理员身份运行 `mklink.bat`, 这会让mod文件链接到生成位置
-5. 再次点击启动即可正常运行
+在 Visual Studio 或命令列開啟 `VPet.sln` 後建置 `x64` 即可。
+
+常用命令：
+
+```powershell
+dotnet test .\VPet-Simulator.Windows.Tests\VPet-Simulator.Windows.Tests.csproj --no-restore -p:Platform=x64 -p:UseAppHost=false -p:OutDir=test-out\ --filter "Category!=Calendar"
+dotnet build .\VPet-Simulator.Windows\VPet-Simulator.Windows.csproj --no-restore -p:Platform=x64
+```
+
+若要直接啟動桌寵，可使用：
+
+```powershell
+.\Start-VPet.cmd
+```
+
+## 測試覆蓋
+
+目前已補上的測試重點包含：
+
+- ChatPipeline 順序與工具呼叫
+- IntentReasoningSkill
+- ResponseReasoningSkill
+- 記憶更新與相容
+- Ollama / Remote model catalog 解析
+- 番茄鐘
+- 指令路由
+- 程式捷徑
+- 地震與天氣解析
+
+`Google Calendar` 相關仍偏整合測試，不是每次快速測試都會跑。
+
+## 已知限制
+
+- 意圖推理第一版仍以規則式為主，不是完整語意代理
+- Google Calendar 若資訊不足，仍需要補時間或目標
+- 位置推定預設不是 GPS，而是 `VPET_DEFAULT_LOCATION` 或 IP 地理位置
+- Remote API 目前只支援 OpenAI-compatible 格式
+
+## 文件
+
+- 重大改動整理：[docs/ai-agent-major-changes.md](docs/ai-agent-major-changes.md)
+
+## 授權
+
+本專案沿用原始開源專案的授權基礎，新增部分也在相同脈絡下維護。實際使用前請先閱讀：
+
+- [LICENSE](LICENSE)
+- 原始專案授權與資源說明
+

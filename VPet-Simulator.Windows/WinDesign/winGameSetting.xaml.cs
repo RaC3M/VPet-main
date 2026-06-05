@@ -21,6 +21,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using VPet_Simulator.Core;
+using VPet_Simulator.Windows.AiAgent;
 using VPet_Simulator.Windows.Interface;
 using static VPet_Simulator.Windows.Win32;
 using Item = Steamworks.Ugc.Item;
@@ -34,6 +35,7 @@ namespace VPet_Simulator.Windows
     {
         MainWindow mw;
         private bool AllowChange = false;
+        private DispatcherTimer pomodoroStatusTimer;
         public winGameSetting(MainWindow mw)
         {
             this.mw = mw;
@@ -65,6 +67,8 @@ namespace VPet_Simulator.Windows
             CalFunctionBox.IsChecked = mw.Set.EnableFunction;
             CalSlider.Value = mw.Set.LogicInterval;
             InteractionSlider.Value = mw.Set.InteractionCycle;
+            PomodoroFocusSlider.Value = mw.Set.PomodoroFocusMinutes;
+            PomodoroBreakSlider.Value = mw.Set.PomodoroBreakMinutes;
             MoveEventBox.IsChecked = mw.Set.AllowMove;
             SmartMoveEventBox.IsChecked = mw.Set.SmartMove;
             AutoChangeWindowEvent.IsChecked = mw.Set.AutoChangeWindow;
@@ -243,6 +247,13 @@ namespace VPet_Simulator.Windows
             ListMod.SelectedIndex = 0;
             ShowMod((string)((ListBoxItem)ListMod.SelectedItem).Content);
             InitializeAiAgentSettings();
+            pomodoroStatusTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            pomodoroStatusTimer.Tick += (_, _) => UpdatePomodoroStatus();
+            pomodoroStatusTimer.Start();
+            UpdatePomodoroStatus();
 
             voicetimer = new DispatcherTimer()
             {
@@ -264,6 +275,7 @@ namespace VPet_Simulator.Windows
 
             ListMenuItems.Add(listmenuswith("互动设置", 2, CalFunctionBox));
             ListMenuItems.Add(listmenuswith("计算间隔", 2, CalSlider));
+            ListMenuItems.Add(listmenuswith("番茄钟设置", 2, PomodoroFocusSlider));
             ListMenuItems.Add(listmenuswith("桌宠移动", 2, MoveEventBox));
             ListMenuItems.Add(listmenuswith("操作设置", 2, PressLengthSlider));
             ListMenuItems.Add(listmenuswith("桌宠名字", 2, TextBoxPetName));
@@ -879,6 +891,74 @@ namespace VPet_Simulator.Windows
             mw.Set.InteractionCycle = (int)(InteractionSlider.Value);
             CalTimeInteraction();
         }
+
+        private void PomodoroFocusSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!AllowChange)
+                return;
+            mw.Set.PomodoroFocusMinutes = (int)PomodoroFocusSlider.Value;
+            UpdatePomodoroStatus();
+        }
+
+        private void PomodoroBreakSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!AllowChange)
+                return;
+            mw.Set.PomodoroBreakMinutes = (int)PomodoroBreakSlider.Value;
+            UpdatePomodoroStatus();
+        }
+
+        private void StartPomodoro_Click(object sender, RoutedEventArgs e)
+        {
+            RunPomodoroCommand(service => service.Start());
+        }
+
+        private void PausePomodoro_Click(object sender, RoutedEventArgs e)
+        {
+            RunPomodoroCommand(service => service.Pause());
+        }
+
+        private void ResumePomodoro_Click(object sender, RoutedEventArgs e)
+        {
+            RunPomodoroCommand(service => service.Resume());
+        }
+
+        private void StopPomodoro_Click(object sender, RoutedEventArgs e)
+        {
+            RunPomodoroCommand(service => service.Stop());
+        }
+
+        private void RunPomodoroCommand(Func<PomodoroService, string> command)
+        {
+            var service = GetPomodoroService();
+            if (service == null)
+            {
+                UpdatePomodoroStatus("番茄鐘服務尚未啟動。");
+                return;
+            }
+
+            UpdatePomodoroStatus(command(service));
+        }
+
+        private PomodoroService GetPomodoroService()
+        {
+            return mw.DynamicResources.TryGetValue(PomodoroService.DynamicResourceKey, out var service)
+                ? service as PomodoroService
+                : null;
+        }
+
+        private void UpdatePomodoroStatus(string message = null)
+        {
+            if (tbPomodoroStatus == null)
+                return;
+
+            var service = GetPomodoroService();
+            var status = service?.BuildStatusText() ?? "番茄鐘服務尚未啟動。";
+            tbPomodoroStatus.Text = string.IsNullOrWhiteSpace(message)
+                ? status
+                : message + "\n" + status;
+        }
+
         private void CalTimeInteraction()
         {
             var interact = (60 / mw.Set.LogicInterval);

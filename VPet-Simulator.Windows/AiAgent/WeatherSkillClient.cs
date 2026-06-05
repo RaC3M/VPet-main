@@ -11,10 +11,17 @@ namespace VPet_Simulator.Windows.AiAgent;
 
 internal sealed class WeatherSkillClient
 {
-    private static readonly HttpClient HttpClient = new()
+    private readonly HttpClient httpClient;
+
+    public WeatherSkillClient()
+        : this(new HttpClient { Timeout = TimeSpan.FromSeconds(20) })
     {
-        Timeout = TimeSpan.FromSeconds(20)
-    };
+    }
+
+    internal WeatherSkillClient(HttpClient httpClient)
+    {
+        this.httpClient = httpClient;
+    }
 
     private static readonly TaiwanLocation[] TaiwanLocations =
     {
@@ -44,6 +51,11 @@ internal sealed class WeatherSkillClient
 
     public async Task<string> GetWeatherAsync(string location, CancellationToken cancellationToken)
     {
+        return await GetWeatherAsync(location, "", cancellationToken);
+    }
+
+    public async Task<string> GetWeatherAsync(string location, string requestText, CancellationToken cancellationToken)
+    {
         var normalizedLocation = NormalizeLocation(location);
         try
         {
@@ -52,12 +64,16 @@ internal sealed class WeatherSkillClient
             if (resolvedLocation == null)
                 return "\u627e\u4e0d\u5230\u9019\u500b\u5730\u9ede\u7684\u5929\u6c23\u3002";
 
+            var cwaApiKey = AiAgentEnvironment.Get(AiAgentEnvironment.CwaApiKey);
+            if (!string.IsNullOrWhiteSpace(cwaApiKey) && resolvedLocation.IsTaiwanLocation)
+                return await GetCwaForecastAsync(resolvedLocation.CwaLocationName, cwaApiKey, requestText, cancellationToken);
+
             var weatherUrl = "https://api.open-meteo.com/v1/forecast"
                 + "?latitude=" + resolvedLocation.Latitude.ToString(CultureInfo.InvariantCulture)
                 + "&longitude=" + resolvedLocation.Longitude.ToString(CultureInfo.InvariantCulture)
                 + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m"
                 + "&forecast_days=1&timezone=auto";
-            using var weatherResponse = await HttpClient.GetAsync(weatherUrl, cancellationToken);
+            using var weatherResponse = await httpClient.GetAsync(weatherUrl, cancellationToken);
             if (!weatherResponse.IsSuccessStatusCode)
                 return $"\u5929\u6c23\u67e5\u8a62\u5931\u6557\uff1a{(int)weatherResponse.StatusCode} {weatherResponse.ReasonPhrase}";
 
@@ -112,7 +128,7 @@ internal sealed class WeatherSkillClient
         var geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name="
             + Uri.EscapeDataString(location)
             + "&count=1&language=zh&format=json";
-        using var geoResponse = await HttpClient.GetAsync(geoUrl, cancellationToken);
+        using var geoResponse = await new HttpClient { Timeout = TimeSpan.FromSeconds(20) }.GetAsync(geoUrl, cancellationToken);
         if (!geoResponse.IsSuccessStatusCode)
             return null;
 
@@ -131,6 +147,131 @@ internal sealed class WeatherSkillClient
         var admin = GetString(place, "admin1");
         var displayName = string.Join(" ", new[] { country, admin, placeName }.Where(value => !string.IsNullOrWhiteSpace(value)));
         return new TaiwanLocation(displayName, displayName, latitude, longitude);
+    }
+
+    private async Task<string> GetCwaForecastAsync(string locationName, string apiKey, string requestText, CancellationToken cancellationToken)
+    {
+        var url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
+            + "?Authorization=" + Uri.EscapeDataString(apiKey)
+            + "&locationName=" + Uri.EscapeDataString(locationName)
+            + "&format=JSON";
+
+        using var response = await httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return $"中央氣象署天氣查詢失敗：{(int)response.StatusCode} {response.ReasonPhrase}";
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        return ParseCwaForecast(json, locationName, requestText);
+    }
+
+    internal static string ParseCwaForecastForTest(string json, string locationName)
+    {
+        return ParseCwaForecast(json, locationName, "");
+    }
+
+    private static string ParseCwaForecast(string json, string locationName, string requestText)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (GetString(root, "success").Equals("false", StringComparison.OrdinalIgnoreCase))
+            return "中央氣象署天氣查詢失敗：API 回傳失敗。";
+
+        if (!root.TryGetProperty("records", out var records)
+            || !records.TryGetProperty("location", out var locations)
+            || locations.ValueKind != JsonValueKind.Array)
+        {
+            return "中央氣象署 API 有回應，但找不到天氣預報內容。";
+        }
+
+        var location = locations.EnumerateArray()
+            .FirstOrDefault(item => GetString(item, "locationName").Equals(locationName, StringComparison.OrdinalIgnoreCase));
+        if (location.ValueKind == JsonValueKind.Undefined)
+            location = locations.EnumerateArray().FirstOrDefault();
+        if (location.ValueKind == JsonValueKind.Undefined)
+            return "中央氣象署 API 有回應，但沒有這個地點的預報。";
+
+        var displayName = GetString(location, "locationName");
+        var wx = GetCwaElement(location, "Wx", requestText);
+        var pop = GetCwaElement(location, "PoP", requestText);
+        var minT = GetCwaElement(location, "MinT", requestText);
+        var maxT = GetCwaElement(location, "MaxT", requestText);
+        var ci = GetCwaElement(location, "CI", requestText);
+        var start = GetCwaElementStart(location, "Wx", requestText);
+        var end = GetCwaElementEnd(location, "Wx", requestText);
+        var timeText = FormatCwaForecastTime(start, end);
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(wx))
+            parts.Add(wx);
+        if (!string.IsNullOrWhiteSpace(minT) || !string.IsNullOrWhiteSpace(maxT))
+            parts.Add($"氣溫 {minT}-{maxT}°C");
+        if (!string.IsNullOrWhiteSpace(pop))
+            parts.Add($"降雨機率 {pop}%");
+        if (!string.IsNullOrWhiteSpace(ci))
+            parts.Add(ci);
+
+        return $"中央氣象署 {displayName} {timeText}預報：{string.Join("，", parts)}。";
+    }
+
+    private static string GetCwaElement(JsonElement location, string elementName, string requestText)
+    {
+        var time = GetCwaElementTime(location, elementName, requestText);
+        return time.ValueKind == JsonValueKind.Undefined
+            ? ""
+            : GetString(time.GetProperty("parameter"), "parameterName");
+    }
+
+    private static string GetCwaElementStart(JsonElement location, string elementName, string requestText)
+    {
+        var time = GetCwaElementTime(location, elementName, requestText);
+        return time.ValueKind == JsonValueKind.Undefined ? "" : GetString(time, "startTime");
+    }
+
+    private static string GetCwaElementEnd(JsonElement location, string elementName, string requestText)
+    {
+        var time = GetCwaElementTime(location, elementName, requestText);
+        return time.ValueKind == JsonValueKind.Undefined ? "" : GetString(time, "endTime");
+    }
+
+    private static JsonElement GetCwaElementTime(JsonElement location, string elementName, string requestText)
+    {
+        if (!location.TryGetProperty("weatherElement", out var elements) || elements.ValueKind != JsonValueKind.Array)
+            return default;
+
+        var element = elements.EnumerateArray()
+            .FirstOrDefault(item => GetString(item, "elementName").Equals(elementName, StringComparison.OrdinalIgnoreCase));
+        if (element.ValueKind == JsonValueKind.Undefined
+            || !element.TryGetProperty("time", out var times)
+            || times.ValueKind != JsonValueKind.Array)
+        {
+            return default;
+        }
+
+        if (ShouldUseTomorrowForecast(requestText))
+        {
+            var tomorrow = DateTime.Today.AddDays(1);
+            var tomorrowTime = times.EnumerateArray()
+                .FirstOrDefault(time => DateTime.TryParse(GetString(time, "startTime"), out var startTime)
+                    && startTime.Date == tomorrow);
+            if (tomorrowTime.ValueKind != JsonValueKind.Undefined)
+                return tomorrowTime;
+        }
+
+        return times.EnumerateArray().FirstOrDefault();
+    }
+
+    private static bool ShouldUseTomorrowForecast(string requestText)
+    {
+        return (requestText ?? "").Contains("明天", StringComparison.OrdinalIgnoreCase)
+            || (requestText ?? "").Contains("tomorrow", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatCwaForecastTime(string start, string end)
+    {
+        if (!DateTime.TryParse(start, out var startTime) || !DateTime.TryParse(end, out var endTime))
+            return "";
+
+        return $"{startTime:MM/dd HH:mm}-{endTime:HH:mm} ";
     }
 
     private static string NormalizeLocation(string location)
@@ -210,6 +351,8 @@ internal sealed class WeatherSkillClient
             Latitude = latitude;
             Longitude = longitude;
             Aliases = new[] { displayName, englishName }.Concat(aliases).ToArray();
+            CwaLocationName = Aliases.FirstOrDefault(alias => alias.EndsWith("市", StringComparison.Ordinal) || alias.EndsWith("縣", StringComparison.Ordinal)) ?? displayName;
+            IsTaiwanLocation = aliases.Length > 0;
         }
 
         public string DisplayName { get; }
@@ -217,5 +360,7 @@ internal sealed class WeatherSkillClient
         public double Latitude { get; }
         public double Longitude { get; }
         public IReadOnlyList<string> Aliases { get; }
+        public string CwaLocationName { get; }
+        public bool IsTaiwanLocation { get; }
     }
 }

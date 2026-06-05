@@ -1,15 +1,17 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using VPet_Simulator.Windows.AiAgent.Chat;
 
 namespace VPet_Simulator.Windows.AiAgent;
 
-internal sealed class OllamaAgentClient
+internal sealed class OllamaAgentClient : IAiReplyClient
 {
     private const string ModelKeepAlive = "4h";
     private static readonly HttpClient HttpClient = new()
@@ -26,7 +28,12 @@ internal sealed class OllamaAgentClient
         if (!string.IsNullOrWhiteSpace(readyError))
             return readyError;
 
-        return await PreloadModelIfNeededAsync(GetModel(), cancellationToken);
+        var baseUrl = GetBaseUrl();
+        var model = await ResolveModelAsync(baseUrl, cancellationToken);
+        if (string.IsNullOrWhiteSpace(model))
+            return "\u5c1a\u672a\u9078\u64c7 Ollama \u6a21\u578b\uff0c\u4e5f\u6c92\u6709\u53d6\u5f97\u5df2\u5b89\u88dd\u6a21\u578b\u6e05\u55ae\u3002";
+
+        return await PreloadModelIfNeededAsync(model, cancellationToken);
     }
 
     public async Task<string> PullModelAsync(string model, CancellationToken cancellationToken)
@@ -224,20 +231,35 @@ internal sealed class OllamaAgentClient
 
     public async Task<string> GetReplyAsync(string userText, string petStatus, string calendarSummary, CancellationToken cancellationToken)
     {
+        var context = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(petStatus))
+            context.AppendLine(petStatus);
+        if (!string.IsNullOrWhiteSpace(calendarSummary))
+            context.AppendLine("\u53ef\u7528\u80cc\u666f\u8cc7\u8a0a\uff1a").AppendLine(calendarSummary);
+
+        return await GenerateReplyAsync(new AiReplyGenerationRequest
+        {
+            SystemPrompt = new PersonalitySkill().BuildSystemPrompt(new PersonalitySkill().GetProfile(AiConversationContext.ForTest(userText))),
+            ContextPrompt = context.ToString(),
+            UserInput = userText
+        }, cancellationToken);
+    }
+
+    public async Task<string> GenerateReplyAsync(AiReplyGenerationRequest request, CancellationToken cancellationToken)
+    {
         var readyError = await EnsureReadyAsync(cancellationToken);
         if (!string.IsNullOrWhiteSpace(readyError))
             return readyError;
 
         var baseUrl = GetBaseUrl();
-        var model = GetModel();
-        var system = BuildSystemPrompt();
+        var model = await ResolveModelAsync(baseUrl, cancellationToken);
+        if (string.IsNullOrWhiteSpace(model))
+            return "\u5c1a\u672a\u9078\u64c7 Ollama \u6a21\u578b\u3002";
 
         var input = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(petStatus))
-            input.AppendLine(petStatus);
-        if (!string.IsNullOrWhiteSpace(calendarSummary))
-            input.AppendLine("\u53ef\u7528\u80cc\u666f\u8cc7\u8a0a\uff1a").AppendLine(calendarSummary);
-        input.AppendLine("\u4f7f\u7528\u8005\u8a0a\u606f\uff1a").AppendLine(userText);
+        if (!string.IsNullOrWhiteSpace(request.ContextPrompt))
+            input.AppendLine(request.ContextPrompt);
+        input.AppendLine("\u4f7f\u7528\u8005\u8a0a\u606f\uff1a").AppendLine(request.UserInput);
 
         var requestBody = JsonSerializer.Serialize(new
         {
@@ -246,17 +268,17 @@ internal sealed class OllamaAgentClient
             keep_alive = ModelKeepAlive,
             messages = new object[]
             {
-                new { role = "system", content = system },
+                new { role = "system", content = request.SystemPrompt },
                 new { role = "user", content = input.ToString() }
             }
         });
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl.TrimEnd('/') + "/api/chat");
-        request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, baseUrl.TrimEnd('/') + "/api/chat");
+        httpRequest.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
 
         try
         {
-            using var response = await HttpClient.SendAsync(request, cancellationToken);
+            using var response = await HttpClient.SendAsync(httpRequest, cancellationToken);
             var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
                 return $"Ollama \u56de\u61c9\u5931\u6557\uff1a{(int)response.StatusCode} {response.ReasonPhrase}";
@@ -270,7 +292,7 @@ internal sealed class OllamaAgentClient
         }
         catch (HttpRequestException)
         {
-            return "Ollama \u5c1a\u672a\u57f7\u884c\u3002\u8acb\u5b89\u88dd Ollama\uff0c\u57f7\u884c `ollama pull qwen2.5:7b`\uff0c\u518d\u91cd\u8a66\u3002";
+            return "Ollama \u5c1a\u672a\u57f7\u884c\u3002\u8acb\u5b89\u88dd Ollama\uff0c\u4e26\u5148\u4e0b\u8f09\u4e00\u500b\u672c\u5730\u6a21\u578b\u5f8c\u518d\u91cd\u8a66\u3002";
         }
     }
 
@@ -281,7 +303,9 @@ internal sealed class OllamaAgentClient
             return OllamaSkillCall.None;
 
         var baseUrl = GetBaseUrl();
-        var model = GetModel();
+        var model = await ResolveModelAsync(baseUrl, cancellationToken);
+        if (string.IsNullOrWhiteSpace(model))
+            return OllamaSkillCall.None;
         var input = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(petStatus))
             input.AppendLine(petStatus);
@@ -385,6 +409,11 @@ internal sealed class OllamaAgentClient
             "- list_reminders\uff1a\u4f7f\u7528\u8005\u554f\u76ee\u524d\u6709\u54ea\u4e9b\u672c\u6a5f\u63d0\u9192",
             "- open_program\uff1a\u4f7f\u7528\u8005\u8981\u6253\u958b\u767d\u540d\u55ae\u7a0b\u5f0f\u3001\u6377\u5f91\u6216\u81ea\u8a02\u9023\u7d50\uff1b\u8acb\u984d\u5916\u56de\u50b3 target",
             "- search_files\uff1a\u4f7f\u7528\u8005\u8981\u641c\u5c0b\u96fb\u8166\u88e1\u7684\u6a94\u6848\uff1b\u8acb\u984d\u5916\u56de\u50b3 query",
+            "- start_pomodoro：使用者要開始番茄鐘、進入專注時間或說要使用番茄鐘",
+            "- get_pomodoro_status：使用者問番茄鐘目前狀態、剩多久、還要專注多久或還要休息多久",
+            "- pause_pomodoro：使用者要暫停番茄鐘或暫停專注時間",
+            "- resume_pomodoro：使用者要繼續、恢復暫停中的番茄鐘",
+            "- stop_pomodoro：使用者要停止、取消或結束番茄鐘",
             "- sleep\uff1a\u4f7f\u7528\u8005\u8981\u4f60\u7761\u89ba\u3001\u4f11\u606f\u6216\u53bb\u7761",
             "- wake_up\uff1a\u4f7f\u7528\u8005\u8981\u4f60\u8d77\u5e8a\u3001\u9192\u4f86\u6216\u4e0d\u8981\u7761",
             "- stop_activity\uff1a\u4f7f\u7528\u8005\u8981\u4f60\u505c\u6b62\u5de5\u4f5c\u3001\u5b78\u7fd2\u6216\u505c\u4e0b\u73fe\u5728\u7684\u884c\u52d5",
@@ -398,6 +427,11 @@ internal sealed class OllamaAgentClient
             "get_weather \u7bc4\u4f8b\uff1a{\"skill\":\"get_weather\",\"location\":\"\u53f0\u4e2d\"}",
             "remember_user_fact \u7bc4\u4f8b\uff1a{\"skill\":\"remember_user_fact\",\"fact\":\"\u4e3b\u4eba\u559c\u6b61\u559d\u7121\u7cd6\u7da0\u8336\"}",
             "create_reminder \u7bc4\u4f8b\uff1a{\"skill\":\"create_reminder\",\"title\":\"\u559d\u6c34\",\"time\":\"" + DateTime.Now.AddMinutes(5).ToString("yyyy-MM-dd HH:mm") + "\",\"note\":\"\"}",
+            "start_pomodoro 範例：{\"skill\":\"start_pomodoro\"}",
+            "get_pomodoro_status 範例：{\"skill\":\"get_pomodoro_status\"}",
+            "pause_pomodoro 範例：{\"skill\":\"pause_pomodoro\"}",
+            "resume_pomodoro 範例：{\"skill\":\"resume_pomodoro\"}",
+            "stop_pomodoro 範例：{\"skill\":\"stop_pomodoro\"}",
             "calendar_list_today 範例：{\"skill\":\"calendar_list_today\"}",
             "calendar_list_by_date 範例：{\"skill\":\"calendar_list_by_date\",\"date\":\"" + tomorrow.ToString("yyyy-MM-dd") + "\"}",
             "calendar_add_event 範例：{\"skill\":\"calendar_add_event\",\"title\":\"資料庫報告討論\",\"start_datetime\":\"" + tomorrow.ToString("yyyy-MM-dd") + "T15:00:00+08:00\",\"end_datetime\":\"" + tomorrow.ToString("yyyy-MM-dd") + "T16:00:00+08:00\",\"description\":\"\"}",
@@ -528,8 +562,28 @@ internal sealed class OllamaAgentClient
 
     private static string GetModel()
     {
-        var model = AiAgentEnvironment.Get(AiAgentEnvironment.OllamaModel);
-        return string.IsNullOrWhiteSpace(model) ? "qwen2.5:7b" : model;
+        return AiAgentEnvironment.Get(AiAgentEnvironment.OllamaModel);
+    }
+
+    private static async Task<string> ResolveModelAsync(string baseUrl, CancellationToken cancellationToken)
+    {
+        var configured = GetModel();
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        try
+        {
+            using var response = await HttpClient.GetAsync(baseUrl.TrimEnd('/') + "/api/tags", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                return "";
+
+            var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+            return AiModelCatalogService.ParseOllamaTags(responseText).FirstOrDefault() ?? "";
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     private static async Task<bool> IsServerReadyAsync(string baseUrl, CancellationToken cancellationToken)

@@ -15,6 +15,8 @@ internal sealed class AiAgentPlugin : MainPlugin
     private AiAgentPetStatusBuilder? petStatusBuilder;
     private CalendarReminderService? reminderService;
     private LocalReminderService? localReminderService;
+    private PomodoroService? pomodoroService;
+    private EarthquakeMonitorService? earthquakeMonitorService;
     private AiAgentTalkBox? talkBox;
 
     public AiAgentPlugin(IMainWindow mainwin) : base(mainwin)
@@ -30,8 +32,12 @@ internal sealed class AiAgentPlugin : MainPlugin
         reminderService.Start();
         localReminderService = new LocalReminderService(MW, new LocalReminderStore());
         localReminderService.Start();
+        pomodoroService = new PomodoroService(MW);
+        MW.DynamicResources[PomodoroService.DynamicResourceKey] = pomodoroService;
+        earthquakeMonitorService = new EarthquakeMonitorService(MW);
+        earthquakeMonitorService.Start();
 
-        talkBox = new AiAgentTalkBox(this, openAiClient, ollamaClient, reminderService, petStatusBuilder);
+        talkBox = new AiAgentTalkBox(this, openAiClient, ollamaClient, reminderService, petStatusBuilder, pomodoroService);
         MW.TalkAPI.Add(talkBox);
 
         MW.Main.ToolBar.AddMenuButton(ToolBar.MenuType.Interact, "AI Agent", ActivateTalkBox);
@@ -50,6 +56,9 @@ internal sealed class AiAgentPlugin : MainPlugin
     {
         reminderService?.Dispose();
         localReminderService?.Dispose();
+        pomodoroService?.Dispose();
+        earthquakeMonitorService?.Dispose();
+        MW.DynamicResources.Remove(PomodoroService.DynamicResourceKey);
     }
 
     public override void Setting()

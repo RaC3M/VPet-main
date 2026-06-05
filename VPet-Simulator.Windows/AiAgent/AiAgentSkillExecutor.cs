@@ -2,28 +2,34 @@ using System;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using VPet_Simulator.Windows.AiAgent.Chat;
 using VPet_Simulator.Windows.Interface;
 
 namespace VPet_Simulator.Windows.AiAgent;
 
-internal sealed class AiAgentSkillExecutor
+internal sealed class AiAgentSkillExecutor : IAiAgentToolExecutor
 {
     private readonly IMainWindow mw;
     private readonly CalendarReminderService reminderService;
+    private readonly PomodoroService pomodoroService;
     private readonly GoogleCalendarClient calendarClient;
     private readonly AiAgentPetStatusBuilder petStatusBuilder;
     private readonly WeatherSkillClient weatherClient = new();
+    private readonly EarthquakeSkillClient earthquakeClient = new();
+    private readonly EarthquakeAlertService earthquakeAlertService;
     private readonly AiAgentMemoryStore memoryStore = new();
     private readonly LocalReminderStore localReminderStore = new();
     private readonly ProgramShortcutStore programShortcutStore = new();
     private readonly FileSearchSkill fileSearchSkill = new();
 
-    public AiAgentSkillExecutor(IMainWindow mw, CalendarReminderService reminderService, AiAgentPetStatusBuilder petStatusBuilder)
+    public AiAgentSkillExecutor(IMainWindow mw, CalendarReminderService reminderService, AiAgentPetStatusBuilder petStatusBuilder, PomodoroService pomodoroService)
     {
         this.mw = mw;
         this.reminderService = reminderService;
+        this.pomodoroService = pomodoroService;
         calendarClient = reminderService.CalendarClient;
         this.petStatusBuilder = petStatusBuilder;
+        earthquakeAlertService = new EarthquakeAlertService(mw);
     }
 
     public async Task<string> ExecuteAsync(OllamaSkillCall skillCall, string userText, CancellationToken cancellationToken)
@@ -45,7 +51,11 @@ internal sealed class AiAgentSkillExecutor
                 cancellationToken),
             "calendar_search_events" => await calendarClient.SearchEventsAsync(GetCalendarKeyword(skillCall, userText), skillCall.DaysAhead, cancellationToken),
             "calendar_delete_event" => await DeleteCalendarEventAsync(skillCall, cancellationToken),
-            "get_weather" => await weatherClient.GetWeatherAsync(string.IsNullOrWhiteSpace(skillCall.Location) ? userText : skillCall.Location, cancellationToken),
+            "get_weather" => await weatherClient.GetWeatherAsync(
+                string.IsNullOrWhiteSpace(skillCall.Location) ? userText : skillCall.Location,
+                string.IsNullOrWhiteSpace(skillCall.Query) ? userText : skillCall.Query,
+                cancellationToken),
+            "get_earthquake_report" => await GetEarthquakeReportAsync(cancellationToken),
             "remember_user_fact" => memoryStore.Remember(string.IsNullOrWhiteSpace(skillCall.Fact) ? userText : skillCall.Fact),
             "recall_memory" => memoryStore.Recall(),
             "create_reminder" => localReminderStore.Create(
@@ -55,6 +65,11 @@ internal sealed class AiAgentSkillExecutor
             "list_reminders" => localReminderStore.ListText(),
             "open_program" => programShortcutStore.Open(string.IsNullOrWhiteSpace(skillCall.Target) ? userText : skillCall.Target),
             "search_files" => await fileSearchSkill.SearchAsync(string.IsNullOrWhiteSpace(skillCall.Query) ? userText : skillCall.Query, cancellationToken),
+            "start_pomodoro" => pomodoroService.Start(),
+            "get_pomodoro_status" => pomodoroService.BuildStatusText(),
+            "pause_pomodoro" => pomodoroService.Pause(),
+            "resume_pomodoro" => pomodoroService.Resume(),
+            "stop_pomodoro" => pomodoroService.Stop(),
             "sleep" => RunPetCommand("\u53bb\u7761\u89ba"),
             "wake_up" => RunPetCommand("\u9192\u4f86"),
             "stop_activity" => RunPetCommand("\u505c\u6b62\u5de5\u4f5c"),
@@ -71,6 +86,14 @@ internal sealed class AiAgentSkillExecutor
         return string.IsNullOrWhiteSpace(result)
             ? ""
             : $"Skill `{skillCall.SkillName}` \u57f7\u884c\u7d50\u679c\uff1a\n{result}";
+    }
+
+    private async Task<string> GetEarthquakeReportAsync(CancellationToken cancellationToken)
+    {
+        var report = await earthquakeClient.GetLatestReportAsync(cancellationToken);
+        earthquakeAlertService.NotifyIfNew(report);
+
+        return report.Summary;
     }
 
     private async Task<string> DeleteCalendarEventAsync(OllamaSkillCall skillCall, CancellationToken cancellationToken)
@@ -131,7 +154,7 @@ internal sealed class AiAgentSkillExecutor
 
     private string RunPetCommand(string command)
     {
-        return AiAgentCommandRouter.TryHandle(mw, command, out var response)
+        return AiAgentCommandRouter.TryHandle(mw, command, out var response, pomodoroService)
             ? response
             : "\u9019\u500b skill \u76ee\u524d\u7121\u6cd5\u57f7\u884c\u3002";
     }

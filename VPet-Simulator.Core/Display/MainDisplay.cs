@@ -109,6 +109,9 @@ namespace VPet_Simulator.Core
         /// <returns></returns>
         public bool DisplayToMove()
         {
+            if (State == WorkingState.Work)
+                return false;
+
             var list = Core.Graph.GraphConfig.Moves.ToList();
             for (int i = Function.Rnd.Next(list.Count); 0 != list.Count; i = Function.Rnd.Next(list.Count))
             {

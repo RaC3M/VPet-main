@@ -85,6 +85,16 @@ namespace VPet_Simulator.Windows.Interface
         int InteractionCycle { get; set; }
 
         /// <summary>
+        /// 获取或设置番茄钟专注时间（分钟）
+        /// </summary>
+        int PomodoroFocusMinutes { get; set; }
+
+        /// <summary>
+        /// 获取或设置番茄钟休息时间（分钟）
+        /// </summary>
+        int PomodoroBreakMinutes { get; set; }
+
+        /// <summary>
         /// 获取当前计算间隔（秒）
         /// </summary>
         double LogicInterval { get; }
