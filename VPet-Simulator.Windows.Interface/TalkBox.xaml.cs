@@ -127,6 +127,26 @@ namespace VPet_Simulator.Windows.Interface
         /// </summary>
         public abstract void Setting();
 
+        /// <summary>
+        /// 麦克风按钮按下时调用
+        /// </summary>
+        public virtual void OnMicButtonDown() { }
+
+        /// <summary>
+        /// 麦克风按钮松开时调用
+        /// </summary>
+        public virtual void OnMicButtonUp() { }
+
+        private void Mic_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            OnMicButtonDown();
+        }
+
+        private void Mic_PreviewMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            OnMicButtonUp();
+        }
+
         private void tbTalk_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control))

@@ -88,7 +88,11 @@ namespace VPet_Simulator.Windows
 
             //判断是不是Steam用户,因为本软件会发布到Steam
             //在 https://store.steampowered.com/app/1920960/VPet
-            try
+            if (string.Equals(Environment.GetEnvironmentVariable("VPET_SKIP_STEAM"), "true", StringComparison.OrdinalIgnoreCase))
+            {
+                IsSteamUser = false;
+            }
+            else try
             {
 #if DEMO
                 SteamClient.Init(2293870, true);

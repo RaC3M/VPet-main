@@ -19,6 +19,20 @@ internal static class AiAgentEnvironment
     public const string GoogleRefreshToken = "VPET_GOOGLE_REFRESH_TOKEN";
     public const string CwaApiKey = "VPET_CWA_API_KEY";
     public const string DefaultLocation = "VPET_DEFAULT_LOCATION";
+    public const string VisionModel = "VPET_VISION_MODEL";
+    public const string FeatureVoiceInput = "VPET_FEATURE_VOICE_INPUT";
+    public const string FeatureVoiceOutput = "VPET_FEATURE_VOICE_OUTPUT";
+    public const string TtsProvider = "VPET_TTS_PROVIDER";
+    public const string RvcPythonExe = "VPET_RVC_PYTHON_EXE";
+    public const string RvcEdgeVoice = "VPET_RVC_EDGE_VOICE";
+    public const string RvcDevice = "VPET_RVC_DEVICE";
+    public const string RvcPitch = "VPET_RVC_PITCH";
+    public const string RvcIndexRate = "VPET_RVC_INDEX_RATE";
+    public const string RvcServerPort = "VPET_RVC_SERVER_PORT";
+    public const string FeatureScreenAware = "VPET_FEATURE_SCREEN_AWARE";
+    public const string FeatureWorkflow = "VPET_FEATURE_WORKFLOW";
+    public const string ScreenAwareInterval = "VPET_SCREEN_AWARE_INTERVAL";
+    public const string HotkeyPushToTalk = "VPET_HOTKEY_PUSH_TO_TALK";
 
     public static string Provider
     {
@@ -47,7 +61,9 @@ internal static class AiAgentEnvironment
 
     public static void SetUser(string name, string value)
     {
-        Environment.SetEnvironmentVariable(name, string.IsNullOrWhiteSpace(value) ? null : value, EnvironmentVariableTarget.User);
+        var finalValue = string.IsNullOrWhiteSpace(value) ? null : value;
+        Environment.SetEnvironmentVariable(name, finalValue, EnvironmentVariableTarget.User);
+        Environment.SetEnvironmentVariable(name, finalValue);
     }
 
     public static string GetSelectedModel()
@@ -55,6 +71,12 @@ internal static class AiAgentEnvironment
         return Provider.Equals("ollama", StringComparison.OrdinalIgnoreCase)
             ? Get(OllamaModel)
             : Get(RemoteApiModel);
+    }
+
+    public static string GetTtsProvider()
+    {
+        var provider = Get(TtsProvider);
+        return string.IsNullOrWhiteSpace(provider) ? "sherpa_onnx" : provider;
     }
 
     public static string GetRemoteApiKey()

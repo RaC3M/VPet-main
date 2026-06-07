@@ -40,7 +40,9 @@ internal sealed class AiAgentPlugin : MainPlugin
         talkBox = new AiAgentTalkBox(this, openAiClient, ollamaClient, reminderService, petStatusBuilder, pomodoroService);
         MW.TalkAPI.Add(talkBox);
 
-        MW.Main.ToolBar.AddMenuButton(ToolBar.MenuType.Interact, "AI Agent", ActivateTalkBox);
+        // 設為預設聊天介面
+        MW.Set["CGPT"][(gstr)"type"] = "DIY";
+        MW.Set["CGPT"][(gstr)"DIY"] = "AI Agent";
 
         if (AiAgentEnvironment.Provider.Equals("ollama", StringComparison.OrdinalIgnoreCase))
         {
@@ -68,21 +70,6 @@ internal sealed class AiAgentPlugin : MainPlugin
             if (MW is MainWindow mainWindow)
                 mainWindow.winSetting.SelectAiAgentSettings();
         });
-    }
-
-    private void ActivateTalkBox()
-    {
-        if (talkBox == null || MW is not MainWindow mainWindow)
-            return;
-
-        var index = MW.TalkAPI.FindIndex(x => x.APIName == talkBox.APIName);
-        if (index < 0)
-            return;
-
-        mainWindow.TalkAPIIndex = index;
-        mainWindow.Set["CGPT"][(gstr)"type"] = "DIY";
-        mainWindow.Set["CGPT"][(gstr)"DIY"] = talkBox.APIName;
-        mainWindow.LoadTalkDIY();
     }
 
 }

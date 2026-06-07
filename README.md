@@ -30,6 +30,7 @@
 - 桌寵人格已抽離為獨立 `PersonalitySkill`
 - 回覆風格會依情緒、意圖、模式調整
 - 避免每句都硬裝可愛，改成偏自然、口語、朋友感
+- 支援螢幕感知（Screen Awareness）：桌寵可主動根據使用者目前桌面活動產生自然回應
 
 ### 2. 顯式 ChatPipeline
 
@@ -116,10 +117,38 @@ user_input
 - 保留 remote OpenAI-compatible API 介面
 - 可由 API base URL 讀取 `/v1/models`
 
-### 8. 本地優先
+### 8. 語音整合 (ASR + TTS)
+
+- 本地語音辨識 (ASR)：使用 sherpa-onnx + Paraformer 模型，按壓麥克風按鈕錄音，放開即辨識
+- 本地語音合成 (TTS)：預設使用 sherpa-onnx + VITS，也可切換到 RVC 路線
+- Push-to-Talk：長按 🎤 錄音，放開開始辨識，不干擾鍵盤輸入
+- TTS 模型使用 `vits-zh-hf-fanchen-C`（187 位發音人），預設 Speaker ID = 20，聲音更自然甜美
+- 音訊輸出改用 `DirectSoundOut`，避免 `WaveOutEvent` 在部分環境的 `BadDeviceId` 錯誤
+- 可透過 `VPET_HOTKEY_PUSH_TO_TALK` 自訂按住說話熱鍵
+- 所有語音模型均在本地執行，不需網路連線
+
+#### 語音模型說明
+
+- ASR 模型：放在 `voicemodel/sherpa-onnx-paraformer-zh-2023-09-14/`，程式會讀取 `model.int8.onnx` 與 `tokens.txt`
+- 預設 TTS 模型：放在 `voicemodel/vits-zh-hf-fanchen-C/`，程式會讀取 `vits-zh-hf-fanchen-C.onnx`、`tokens.txt`、`lexicon.txt`
+- 預設 TTS 提供者是 `sherpa_onnx`，優點是部署簡單、全本地、啟動快，適合直接讓桌寵朗讀 LLM 回覆
+- 另一條 TTS 路線是 `rvc`，會先用 Edge TTS 產生基礎語音，再透過 RVC 模型轉成指定聲線
+- RVC 模型放在 `RVC Voice Model/`，程式會尋找第一個 `*.pth` 與 `*.index`
+- RVC 服務腳本在 `RVC TTS/vpet_rvc_server.py`，若切到 `rvc`，程式會嘗試啟動本機 Python 服務
+- 如果你要更像角色配音、固定聲線，`rvc` 比較適合；如果你要穩定、簡單、少依賴，維持 `sherpa_onnx` 較實際
+
+### 9. 自動化流程 (Workflow)
+
+- 內建 Workflow 編輯器，可在設定頁新增、編輯、刪除與重載流程
+- 支援三種觸發來源：輸入關鍵字、排程 Cron、螢幕關鍵字
+- 支援動作：開程式、啟動番茄鐘、桌寵發話、等待、Windows 通知
+- 可把桌寵從聊天助手延伸成桌面自動化助手，例如「開始寫程式」就自動開工具並啟動專注流程
+
+### 10. 本地優先
 
 - 預設走本地模型
 - 遠端 API 只保留介面，不綁定單一服務商
+- 螢幕感知 (Screen Awareness) 使用本地 Ollama 多模態視覺模型（如 `llava`）分析桌面畫面，不需要雲端 API
 - 適合想把桌寵當成個人桌面助手，而不是單純雲端聊天視窗的人
 
 ## 主要改造重點
@@ -135,6 +164,9 @@ user_input
 - 將 Ollama 模型選擇改成讀本機安裝清單
 - 將天氣來源改接中央氣象署
 - 新增地震快訊、桌寵警示動作與系統通知
+- 整合本機語音管線 (ASR + TTS)：按壓發話、自動朗讀回應
+- 新增螢幕感知 (Screen Awareness)：定時截圖 → Ollama 多模態模型分析 → 桌寵主動回應
+- 新增 Workflow 自動化：輸入 / 排程 / 螢幕事件可直接觸發桌寵或本機動作
 
 ## 專案結構
 
@@ -147,16 +179,27 @@ user_input
 
 大致分工如下：
 
-- `AiAgentTalkBox.cs`：聊天 UI 入口
+- `AiAgentTalkBox.cs`：聊天 UI 入口（整合語音 + 螢幕感知定時器）
 - `Chat/AiChatSkills.cs`：ChatPipeline 與各 Skill 實作
 - `Chat/AiChatModels.cs`：pipeline 使用的資料模型
+- `Chat/AiStructuredMemory.cs`：結構化記憶 Schema
+- `VoiceService.cs`：語音辨識 (ASR) 與語音合成 (TTS) 封裝（sherpa-onnx + DirectSoundOut）
+- `VoiceLogger.cs`：語音偵錯日誌
+- `ScreenCaptureService.cs`：螢幕截圖 (Graphics.CopyFromScreen) → base64 JPEG
+- `ScreenAnalysisService.cs`：截圖送 Ollama 多模態模型分析 + 生成桌寵主動回應
+- `ScreenAwareLogger.cs`：螢幕感知專用偵錯日誌
+- `HotkeyService.cs`：Push-to-Talk 熱鍵監聽
 - `AiAgentSkillExecutor.cs`：工具執行入口
+- `AiAgentEnvironment.cs`：環境變數定義與讀取
+- `FeatureManager.cs`：語音 / 螢幕感知 / Workflow 功能開關
 - `AiAgentMemoryStore.cs`：結構化記憶存取
-- `OllamaAgentClient.cs`：本地模型生成
+- `OllamaAgentClient.cs`：本地 Ollama 模型生成
 - `OpenAiAgentClient.cs`：OpenAI-compatible remote API 生成
 - `WeatherSkillClient.cs`：天氣查詢
 - `EarthquakeSkillClient.cs`：地震查詢
 - `LocationSkillClient.cs`：位置解析
+- `PomodoroService.cs` / `PomodoroSession.cs`：番茄鐘實作
+- `WorkflowEngine.cs` / `WorkflowStore.cs`：流程比對、執行與持久化
 
 ## 執行需求
 
@@ -164,7 +207,24 @@ user_input
 - .NET SDK
 - `Ollama`（建議，作為本地模型 provider）
 
-如果要使用完整外部能力，還需要自行準備：
+### 語音模型（放置於 `C:\model\`）
+
+- ASR：[sherpa-onnx-paraformer-zh-2023-09-14](https://github.com/k2-fsa/sherpa-onnx/releases)
+- TTS：[vits-zh-hf-fanchen-C](https://github.com/k2-fsa/sherpa-onnx/releases)（預設 Speaker ID = 20）
+
+### RVC 語音模型（選擇性）
+
+- `RVC TTS/`：RVC TTS 服務與 Python 依賴
+- `RVC Voice Model/`：角色聲線模型，至少需要 `*.pth`，通常也會搭配 `*.index`
+- 若使用 `rvc`，本機需可執行 Python 3.10-3.12，程式會優先找 `RVC TTS/.venv/Scripts/python.exe`，找不到才退回 `py`
+- `RVC TTS/ffmpeg/` 下若有 `ffmpeg.exe`，程式會自動加入 PATH 供 RVC 服務使用
+
+### 多模態視覺模型（選擇性，螢幕感知用）
+
+- Ollama 多模態模型，如 `llava:7b` 或 `qwen2-vl:7b`
+- 需設定環境變數 `VPET_VISION_MODEL`
+
+### 外部 API（選擇性）
 
 - Google Calendar OAuth 憑證
 - 中央氣象署 API Key
@@ -176,6 +236,20 @@ user_input
 ```text
 VPET_CWA_API_KEY
 VPET_DEFAULT_LOCATION
+VPET_VISION_MODEL
+VPET_FEATURE_VOICE_INPUT
+VPET_FEATURE_VOICE_OUTPUT
+VPET_TTS_PROVIDER
+VPET_RVC_PYTHON_EXE
+VPET_RVC_EDGE_VOICE
+VPET_RVC_DEVICE
+VPET_RVC_PITCH
+VPET_RVC_INDEX_RATE
+VPET_RVC_SERVER_PORT
+VPET_FEATURE_SCREEN_AWARE
+VPET_FEATURE_WORKFLOW
+VPET_SCREEN_AWARE_INTERVAL
+VPET_HOTKEY_PUSH_TO_TALK
 VPET_REMOTE_API_BASE_URL
 VPET_REMOTE_API_KEY
 VPET_REMOTE_API_MODEL
@@ -185,6 +259,20 @@ VPET_REMOTE_API_MODEL
 
 - `VPET_CWA_API_KEY`：中央氣象署天氣 / 地震 API
 - `VPET_DEFAULT_LOCATION`：固定預設地點，例如 `臺中市`
+- `VPET_VISION_MODEL`：Ollama 多模態模型名稱（如 `llava:7b`），未設定時不啟動螢幕感知
+- `VPET_FEATURE_VOICE_INPUT`：是否啟用語音輸入
+- `VPET_FEATURE_VOICE_OUTPUT`：是否啟用語音朗讀
+- `VPET_TTS_PROVIDER`：語音輸出提供者，預設 `sherpa_onnx`，可切換為 `rvc`
+- `VPET_RVC_PYTHON_EXE`：指定 RVC 使用的 Python 路徑
+- `VPET_RVC_EDGE_VOICE`：RVC 前置 TTS 使用的 Edge 語音名稱，預設 `zh-TW-HsiaoYuNeural`
+- `VPET_RVC_DEVICE`：RVC 推論裝置，未設定時預設 `cpu`
+- `VPET_RVC_PITCH`：RVC 音高調整
+- `VPET_RVC_INDEX_RATE`：RVC index 混合比例
+- `VPET_RVC_SERVER_PORT`：RVC 本機服務連接埠，預設 `53683`
+- `VPET_FEATURE_SCREEN_AWARE`：是否啟用螢幕感知
+- `VPET_FEATURE_WORKFLOW`：是否啟用 Workflow 自動化
+- `VPET_SCREEN_AWARE_INTERVAL`：螢幕分析間隔秒數
+- `VPET_HOTKEY_PUSH_TO_TALK`：Push-to-Talk 熱鍵
 - `VPET_REMOTE_API_BASE_URL`：遠端 OpenAI-compatible API 位址
 - `VPET_REMOTE_API_KEY`：遠端 API 金鑰
 - `VPET_REMOTE_API_MODEL`：遠端模型 id
@@ -239,4 +327,3 @@ dotnet build .\VPet-Simulator.Windows\VPet-Simulator.Windows.csproj --no-restore
 
 - [LICENSE](LICENSE)
 - 原始專案授權與資源說明
-
