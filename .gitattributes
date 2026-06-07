@@ -1,0 +1,15 @@
+voicemodel/**/*.7z filter=lfs diff=lfs merge=lfs -text
+voicemodel/**/*.bz2 filter=lfs diff=lfs merge=lfs -text
+voicemodel/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.a" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.dll" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.exe" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.gz" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.lib" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.mat" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.pt" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.pyd" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.sav" filter=lfs diff=lfs merge=lfs -text
+"RVC TTS/**/*.zip" filter=lfs diff=lfs merge=lfs -text
+"RVC Voice Model/**/*.index" filter=lfs diff=lfs merge=lfs -text
+"RVC Voice Model/**/*.pth" filter=lfs diff=lfs merge=lfs -text
